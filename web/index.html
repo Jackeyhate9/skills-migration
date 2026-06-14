@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Agent Skills Migrator</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <aside>
+      <div class="brand">
+        <span class="brand-mark">SM</span>
+        <div>
+          <h1>Skills Migrator</h1>
+          <p>Agent backup console</p>
+        </div>
+      </div>
+      <nav>
+        <a href="#dashboard" class="active">Dashboard</a>
+        <a href="#scan">Scan</a>
+        <a href="#export">Export</a>
+        <a href="#import">Import</a>
+        <a href="#conflicts">Conflicts</a>
+        <a href="#logs">Logs</a>
+        <a href="#settings">Settings</a>
+      </nav>
+    </aside>
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Windows-first migration MVP</p>
+          <h2>Move AI coding agent skills safely</h2>
+        </div>
+        <div class="status-pill" id="statusPill">Idle</div>
+      </header>
+      <section id="dashboard">
+        <div class="section-head">
+          <div>
+            <h2>Dashboard</h2>
+            <p>Scan local agent homes, review sensitive exclusions, then export a portable backup.</p>
+          </div>
+          <button id="quickScanBtn">Quick scan</button>
+        </div>
+        <div class="metrics">
+          <div><strong id="totalFiles">0</strong><span>Detected files</span></div>
+          <div><strong id="includedFiles">0</strong><span>Ready to migrate</span></div>
+          <div><strong id="secretFiles">0</strong><span>Secrets held back</span></div>
+        </div>
+        <div class="agent-grid" id="agentGrid"></div>
+      </section>
+      <section id="scan">
+        <div class="section-head">
+          <div>
+            <h2>Scan</h2>
+            <p>Sessions are optional. Secret-like files are excluded unless the CLI is run with explicit secret inclusion.</p>
+          </div>
+          <div class="toolbar">
+            <label class="check"><input id="sessions" type="checkbox" /> Include sessions</label>
+            <button id="scanBtn">Run scan</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Agent</th><th>Category</th><th>Risk</th><th>Size</th><th>Path</th></tr></thead>
+            <tbody id="scanRows"><tr><td colspan="5" class="empty">No scan yet.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="export">
+        <div class="section-head">
+          <div>
+            <h2>Export</h2>
+            <p>Create `backups/latest`, `manifest.json`, copied files, and `outputs/export.zip`.</p>
+          </div>
+          <button id="exportBtn">Export backup</button>
+        </div>
+        <p id="exportResult" class="result-line">Waiting for export.</p>
+      </section>
+      <section id="import">
+        <div class="section-head">
+          <div>
+            <h2>Import</h2>
+            <p>Preview first. Restore creates snapshots before overwrite actions.</p>
+          </div>
+          <div class="toolbar">
+            <select id="strategy">
+              <option value="skip">Skip conflicts</option>
+              <option value="overwrite">Overwrite conflicts</option>
+              <option value="rename">Rename conflicts</option>
+            </select>
+            <button id="previewBtn">Preview restore</button>
+            <button id="restoreBtn" class="secondary">Restore with skip</button>
+          </div>
+        </div>
+      </section>
+      <section id="conflicts">
+        <div class="section-head">
+          <div>
+            <h2>Conflicts</h2>
+            <p>Import preview and restore actions appear here.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Action</th><th>Status</th><th>Target</th><th>Reason</th></tr></thead>
+            <tbody id="conflictRows"><tr><td colspan="4" class="empty">No import preview yet.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="logs">
+        <div class="section-head">
+          <div>
+            <h2>Logs</h2>
+            <p>Recent UI and API events.</p>
+          </div>
+        </div>
+        <pre id="logsBox"></pre>
+      </section>
+      <section id="settings">
+        <div class="section-head">
+          <div>
+            <h2>Settings</h2>
+            <p>Current MVP safety defaults.</p>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <div><strong>Secrets</strong><span>Excluded and redacted by default.</span></div>
+          <div><strong>GitHub</strong><span>Private repository strongly recommended.</span></div>
+          <div><strong>Rollback</strong><span>Snapshots are created before overwrite restore actions.</span></div>
+        </div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

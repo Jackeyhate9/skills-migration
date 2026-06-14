@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/ai-agent-skills-migrator/manifest.schema.json",
+  "title": "AI Agent Skills Migrator Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "created_at",
+    "source_platform",
+    "source_home",
+    "include_sessions",
+    "include_secrets",
+    "entries",
+    "excluded_secrets",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_platform": { "type": "string" },
+    "source_home": { "type": "string" },
+    "include_sessions": { "type": "boolean" },
+    "include_secrets": { "type": "boolean" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "agent_name",
+          "category",
+          "detected_paths",
+          "relative_path",
+          "file_count",
+          "size",
+          "checksum",
+          "target_restore_path",
+          "risk_level",
+          "included"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "agent_name": {
+            "enum": ["claude", "codex", "openclaw", "cursor", "opencode", "hermes", "gemini"]
+          },
+          "category": {
+            "enum": [
+              "skills",
+              "agents",
+              "commands",
+              "prompts",
+              "mcp_configs",
+              "settings",
+              "memories",
+              "sessions",
+              "secrets",
+              "unknown"
+            ]
+          },
+          "detected_paths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "relative_path": { "type": "string" },
+          "file_count": { "const": 1 },
+          "size": { "type": "integer", "minimum": 0 },
+          "checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "target_restore_path": { "type": "string" },
+          "risk_level": { "enum": ["low", "medium", "high"] },
+          "included": { "type": "boolean" },
+          "redacted_preview": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "excluded_secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent_name", "path", "category", "reason"],
+        "properties": {
+          "agent_name": { "type": "string" },
+          "path": { "type": "string" },
+          "category": { "type": "string" },
+          "reason": { "type": "string" },
+          "redacted_preview": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["agents", "total_files", "included_files", "total_size"],
+      "properties": {
+        "agents": { "type": "object" },
+        "total_files": { "type": "integer", "minimum": 0 },
+        "included_files": { "type": "integer", "minimum": 0 },
+        "total_size": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

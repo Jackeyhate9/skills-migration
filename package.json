@@ -1,0 +1,30 @@
+{
+  "name": "ai-agent-skills-migrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Windows-first, cross-platform AI coding agent skills and settings migrator MVP.",
+  "bin": "dist/src/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server.ts --port 5174",
+    "cli": "tsx src/cli.ts",
+    "scan": "tsx src/cli.ts scan",
+    "export": "tsx src/cli.ts export",
+    "import": "tsx src/cli.ts import",
+    "package:win": "node scripts/package-win-folder.mjs",
+    "package:win:sea": "node scripts/package-win.mjs",
+    "smoke": "tsx tests/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

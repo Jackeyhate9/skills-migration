@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.migrator-cache/
+*.log
+export.zip
+backups/
+restore-snapshots/
+work/
+outputs/
+launcher/bin/
+launcher/obj/
