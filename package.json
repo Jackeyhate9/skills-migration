@@ -1,9 +1,9 @@
 {
-  "name": "ai-agent-skills-migrator",
+  "name": "skills-migration",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Windows-first, cross-platform AI coding agent skills and settings migrator MVP.",
+  "description": "Windows-first, cross-platform AI coding agent skills and settings migration tool.",
   "bin": "dist/src/cli.js",
   "scripts": {
     "build": "tsc",

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Agent Skills Migrator</title>
+    <title>Skills Migration</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -11,8 +11,8 @@
       <div class="brand">
         <span class="brand-mark">SM</span>
         <div>
-          <h1>Skills Migrator</h1>
-          <p>Agent backup console</p>
+          <h1>Skills Migration</h1>
+          <p>技能迁移控制台</p>
         </div>
       </div>
       <nav>
@@ -28,8 +28,8 @@
     <main>
       <header class="topbar">
         <div>
-          <p class="eyebrow">Windows-first migration MVP</p>
-          <h2>Move AI coding agent skills safely</h2>
+          <p class="eyebrow">Windows 优先的迁移工具</p>
+          <h2>安全迁移 AI Agent Skills</h2>
         </div>
         <div class="status-pill" id="statusPill">Idle</div>
       </header>
@@ -37,14 +37,14 @@
         <div class="section-head">
           <div>
             <h2>Dashboard</h2>
-            <p>Scan local agent homes, review sensitive exclusions, then export a portable backup.</p>
+            <p>扫描本机 Agent 配置，检查敏感项排除结果，然后导出可迁移备份。</p>
           </div>
           <button id="quickScanBtn">Quick scan</button>
         </div>
         <div class="metrics">
-          <div><strong id="totalFiles">0</strong><span>Detected files</span></div>
-          <div><strong id="includedFiles">0</strong><span>Ready to migrate</span></div>
-          <div><strong id="secretFiles">0</strong><span>Secrets held back</span></div>
+          <div><strong id="totalFiles">0</strong><span>已发现文件</span></div>
+          <div><strong id="includedFiles">0</strong><span>可迁移文件</span></div>
+          <div><strong id="secretFiles">0</strong><span>已排除敏感项</span></div>
         </div>
         <div class="agent-grid" id="agentGrid"></div>
       </section>

@@ -83,7 +83,7 @@ async function main(): Promise<void> {
 }
 
 function printHelp(): void {
-  console.log(`AI Agent Skills Migrator
+  console.log(`Skills Migration
 
 Usage:
   npm run cli -- scan [--out manifest.json] [--include-sessions] [--include-secrets]

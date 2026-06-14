@@ -10,7 +10,7 @@ const seaDir = path.join(root, "dist", "sea");
 const bundlePath = path.join(seaDir, "cli.cjs");
 const blobPath = path.join(seaDir, "sea-prep.blob");
 const configPath = path.join(seaDir, "sea-config.json");
-const exePath = path.join(root, "outputs", "ai-agent-skills-migrator.exe");
+const exePath = path.join(root, "outputs", "skills-migration.exe");
 const postjectCli = path.join(root, "node_modules", "postject", "dist", "cli.js");
 
 await rm(seaDir, { recursive: true, force: true });

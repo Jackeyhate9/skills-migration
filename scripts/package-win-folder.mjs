@@ -47,4 +47,4 @@ await exec(
 );
 
 console.log(`Created Windows executable package: ${outputDir}`);
-console.log(`Run: ${path.join(outputDir, "ai-agent-skills-migrator.exe")}`);
+console.log(`Run: ${path.join(outputDir, "skills-migration.exe")}`);

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.local/ai-agent-skills-migrator/manifest.schema.json",
-  "title": "AI Agent Skills Migrator Manifest",
+  "$id": "https://example.local/skills-migration/manifest.schema.json",
+  "title": "Skills Migration Manifest",
   "type": "object",
   "required": [
     "schema_version",

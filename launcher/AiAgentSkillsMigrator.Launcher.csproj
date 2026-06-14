@@ -4,6 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>ai-agent-skills-migrator</AssemblyName>
+    <AssemblyName>skills-migration</AssemblyName>
   </PropertyGroup>
 </Project>

@@ -48,7 +48,7 @@ export async function startServer(port = 5174): Promise<void> {
   });
 
   await new Promise<void>((resolve) => server.listen(port, resolve));
-  console.log(`AI Agent Skills Migrator WebUI: http://localhost:${port}`);
+  console.log(`Skills Migration WebUI: http://localhost:${port}`);
 }
 
 async function serveStatic(urlPath: string, res: http.ServerResponse): Promise<void> {

@@ -1,39 +1,37 @@
-# AI Agent Skills Migrator
+# Skills Migration
 
-Windows-first, cross-platform migrator for AI coding agent skills, agents, commands, prompts, MCP configs, settings, memories, and optional sessions.
+Skills Migration 是一个 Windows 优先、跨平台可扩展的 AI Agent Skills 迁移工具。它可以扫描本机常见 AI coding agent 配置目录，识别 skills、agents、commands、prompts、MCP configs、settings、memories，并导出为可恢复的迁移包。
 
-The goal is simple: scan one machine, export a safe migration bundle, copy it to another machine, preview the restore, and apply it with conflict handling and rollback snapshots.
+English summary: **Skills Migration** backs up and restores AI coding agent skills, prompts, MCP configs, settings, and memories across machines.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
-## Why This Exists
+## 项目目标
 
-AI coding agents are becoming personal workbenches. Over time they collect skills, command snippets, MCP server configs, project prompts, memories, and agent-specific settings. Those files are scattered across different home directories and app data folders, especially on Windows.
+当你更换电脑、重装系统、切换工作环境时，AI Agent 的技能和配置往往散落在多个目录里。Skills Migration 的目标是：
 
-This MVP gives you a single tool to:
+- 一键扫描本机 AI Agent 配置；
+- 自动分类 skills、prompts、MCP、settings、memories；
+- 默认排除 API key、token、`.env` 和 secret-like 文件；
+- 生成 `manifest.json`，记录 checksum、目标恢复路径和风险级别；
+- 导出本地备份目录和 zip；
+- 在新机器上预览恢复内容；
+- 冲突时支持 `skip`、`overwrite`、`rename`；
+- 覆盖前自动创建 backup snapshot，支持回滚依据。
 
-- detect installed agent configuration files,
-- classify them into portable migration categories,
-- exclude secrets by default,
-- generate a `manifest.json`,
-- export a zip and local backup folder,
-- preview restore actions on a new machine,
-- resolve conflicts with `skip`, `overwrite`, or `rename`,
-- create restore snapshots before overwriting anything.
+## 适配的 Agent
 
-## Agent Compatibility
-
-| Agent or tool | Windows paths | macOS/Linux paths | MVP status |
+| Agent / Tool | Windows 扫描路径 | macOS / Linux 扫描路径 | 状态 |
 | --- | --- | --- | --- |
-| Codex | `%USERPROFILE%\.codex` | `~/.codex` | Supported |
-| OpenClaw / `.agents` skills | `%USERPROFILE%\.agents` | `~/.agents` | Supported |
-| Claude Code | `%USERPROFILE%\.claude` | `~/.claude` | Supported |
-| opencode | `%APPDATA%\opencode`, `%LOCALAPPDATA%\opencode`, `%USERPROFILE%\.config\opencode` | `~/.config/opencode` | Supported |
-| Hermes | `%USERPROFILE%\.hermes` | `~/.hermes` | Supported |
-| Cursor | `%USERPROFILE%\.cursor` | `~/.cursor` | Supported |
-| Gemini CLI | `%USERPROFILE%\.gemini` | `~/.gemini` | Supported |
+| Codex | `%USERPROFILE%\.codex` | `~/.codex` | 已支持 |
+| OpenClaw / `.agents` skills | `%USERPROFILE%\.agents` | `~/.agents` | 已支持 |
+| Claude Code | `%USERPROFILE%\.claude` | `~/.claude` | 已支持 |
+| opencode | `%APPDATA%\opencode`, `%LOCALAPPDATA%\opencode`, `%USERPROFILE%\.config\opencode` | `~/.config/opencode` | 已支持 |
+| Hermes | `%USERPROFILE%\.hermes` | `~/.hermes` | 已支持 |
+| Cursor | `%USERPROFILE%\.cursor` | `~/.cursor` | 已支持 |
+| Gemini CLI | `%USERPROFILE%\.gemini` | `~/.gemini` | 已支持 |
 
-Detected categories:
+识别类别：
 
 - `skills`
 - `agents`
@@ -42,83 +40,81 @@ Detected categories:
 - `mcp_configs`
 - `settings`
 - `memories`
-- `sessions`, optional
-- `secrets`, detected and excluded by default
+- `sessions`，默认不迁移，可选开启
+- `secrets`，默认不迁移，只提示和打码
 
-## One-Command Migration
+## 一键导出迁移
 
-On the source machine, create a portable backup:
-
-```powershell
-ai-agent-skills-migrator.exe backup --out backups/latest --zip export.zip
-```
-
-Copy `export.zip` or the `backups/latest` folder to the target machine.
-
-On the target machine, preview restore:
+源机器执行：
 
 ```powershell
-ai-agent-skills-migrator.exe restore --from backups/latest --preview --strategy skip
+skills-migration.exe backup --out backups/latest --zip export.zip
 ```
 
-Apply restore:
+把 `export.zip` 或 `backups/latest` 复制到目标机器。
+
+目标机器先预览：
 
 ```powershell
-ai-agent-skills-migrator.exe restore --from backups/latest --strategy skip
+skills-migration.exe restore --from backups/latest --preview --strategy skip
 ```
 
-Conflict strategies:
+确认后恢复：
 
-- `skip`: keep existing target files
-- `overwrite`: snapshot existing target files, then replace them
-- `rename`: write migrated files as `*.migrated-N.*`
+```powershell
+skills-migration.exe restore --from backups/latest --strategy skip
+```
 
-## Windows EXE Package
+冲突策略：
 
-Build the runnable Windows package:
+- `skip`：目标文件已存在时跳过；
+- `overwrite`：先备份目标原文件，再覆盖；
+- `rename`：写入为 `*.migrated-N.*`。
+
+## Windows 可运行包
+
+构建 Windows 便携包：
 
 ```powershell
 npm install
 npm run package:win
 ```
 
-The output is:
+输出目录：
 
 ```text
-outputs\win-x64\ai-agent-skills-migrator.exe
+outputs\win-x64
 ```
 
-`outputs\win-x64` is the portable release folder. It includes:
+可执行文件：
 
-- `ai-agent-skills-migrator.exe`, a small Windows launcher,
-- `node.exe`, the bundled Node runtime,
-- `app\cli.cjs`, the bundled migrator code,
-- `app\web`, the WebUI assets,
-- `app\docs`, schema and docs assets.
+```text
+outputs\win-x64\skills-migration.exe
+```
 
-Run the WebUI:
+启动 WebUI：
 
 ```powershell
-outputs\win-x64\ai-agent-skills-migrator.exe web
+outputs\win-x64\skills-migration.exe web
 ```
 
-Run CLI commands:
+运行 CLI：
 
 ```powershell
-outputs\win-x64\ai-agent-skills-migrator.exe scan --out manifest.json
-outputs\win-x64\ai-agent-skills-migrator.exe backup --out backups/latest --zip export.zip
-outputs\win-x64\ai-agent-skills-migrator.exe restore --from backups/latest --preview
+outputs\win-x64\skills-migration.exe scan --out manifest.json
+outputs\win-x64\skills-migration.exe backup --out backups/latest --zip export.zip
+outputs\win-x64\skills-migration.exe restore --from backups/latest --preview
 ```
 
-There is also an experimental Node SEA single-exe script:
+`outputs\win-x64` 是可复制的发布目录，包含：
 
-```powershell
-npm run package:win:sea
-```
+- `skills-migration.exe`：Windows launcher；
+- `node.exe`：随包携带的 Node runtime；
+- `app\cli.cjs`：打包后的迁移逻辑；
+- `app\web`：前端界面；
+- `app\docs`：manifest schema 等文档资源。
 
-On Windows, SEA injection may require Windows SDK `signtool` to remove and reapply the Node executable signature.
-
-## Development
+## 本地开发
 
 ```powershell
 npm install
@@ -127,39 +123,39 @@ npm run typecheck
 npm run dev
 ```
 
-Open the WebUI at:
+打开：
 
 ```text
 http://localhost:5174
 ```
 
-## CLI
+## CLI 命令
 
-Scan and print a manifest:
+扫描并输出 manifest：
 
 ```powershell
 npm run cli -- scan
 ```
 
-Scan to a file:
+扫描到文件：
 
 ```powershell
 npm run cli -- scan --out outputs/manifest.json
 ```
 
-Export a local backup directory and zip:
+导出备份目录和 zip：
 
 ```powershell
 npm run cli -- backup --out backups/latest --zip outputs/export.zip
 ```
 
-Preview restore:
+预览恢复：
 
 ```powershell
 npm run cli -- restore --from backups/latest --preview --strategy skip
 ```
 
-Restore:
+执行恢复：
 
 ```powershell
 npm run cli -- restore --from backups/latest --strategy skip
@@ -167,7 +163,7 @@ npm run cli -- restore --from backups/latest --strategy skip
 
 ## WebUI
 
-The WebUI includes:
+WebUI 页面包括：
 
 - Dashboard
 - Scan
@@ -177,13 +173,17 @@ The WebUI includes:
 - Logs
 - Settings
 
-It is intentionally simple: no cloud account, no hidden upload, no background sync. The local API is served by the same CLI process.
+当前 WebUI 是本地优先设计：没有云账号，没有隐式上传，所有 API 都由本地 CLI 进程提供。
 
 ## Manifest
 
-The manifest schema is in `docs/manifest.schema.json`.
+schema 文件：
 
-Each manifest entry includes:
+```text
+docs/manifest.schema.json
+```
+
+每条 manifest entry 包含：
 
 - `agent_name`
 - `detected_paths`
@@ -195,21 +195,19 @@ Each manifest entry includes:
 - `risk_level`
 - `included`
 
-## Safety Model
+## 安全默认值
 
-Defaults are conservative:
+- 默认排除 API keys、tokens、`.env`、credentials 和 secret-like 文件；
+- manifest 中的敏感预览会打码；
+- sessions 默认不迁移，除非显式传入 `--include-sessions`；
+- import 默认使用 `skip` 冲突策略；
+- overwrite 前会创建 backup snapshot；
+- 恢复完成后生成 `restore_report.md`；
+- 被占用或不可读文件会跳过，不会中断整个扫描。
 
-- API keys, tokens, `.env`, credentials, and secret-like files are excluded.
-- Detected sensitive previews are redacted in `manifest.json`.
-- Sessions are skipped unless `--include-sessions` is passed.
-- Imports default to `skip` for conflicts.
-- Overwrite restores create a backup snapshot before replacing files.
-- `restore_report.md` is generated after restore.
-- Locked or unreadable files are skipped instead of aborting the whole scan.
+## 可选 GitHub 私有仓库备份
 
-## Optional GitHub Private Repo Backup
-
-GitHub sync is optional in the MVP. The recommended private-repo workflow is:
+GitHub 同步不是默认功能。推荐把迁移包放到 private repo：
 
 ```powershell
 npm run cli -- backup --out backups/latest --zip outputs/export.zip
@@ -221,7 +219,7 @@ git -C backups/latest remote add origin https://github.com/YOUR_NAME/my-agent-sk
 git -C backups/latest push -u origin main
 ```
 
-Keep the repository private. Do not use `--include-secrets` unless you have audited the archive.
+请保持仓库为 private。除非你已经审计过迁移包，否则不要使用 `--include-secrets`。
 
 ## Smoke Test
 
@@ -229,18 +227,18 @@ Keep the repository private. Do not use `--include-secrets` unless you have audi
 npm run smoke
 ```
 
-The smoke test creates a fake Windows-style source home, adds Claude, Codex, and OpenClaw files plus a secret `.env`, exports a backup, previews import into a fake target home, restores included files, and verifies the secret was not restored.
+测试会创建一个假的 Windows home，写入 Claude、Codex、OpenClaw 配置和一个 secret `.env`，然后验证导出、预览、恢复流程，并确认 secret 不会被恢复。
 
-## Local Detection Result
+## 本机识别测试
 
-On the maintainer machine used for this MVP, the packaged exe successfully detected real skills:
+在 MVP 开发机器上，发布版 exe 已成功识别真实 skills：
 
 ```text
 skills category files: 13,109
 SKILL.md files: 1,735
 ```
 
-Detected `SKILL.md` files by agent:
+按 Agent 统计的 `SKILL.md`：
 
 ```text
 claude: 26
@@ -252,15 +250,37 @@ hermes: 74
 gemini: 2
 ```
 
-The exact numbers depend on your local agent installations.
+实际数字取决于你的本机安装情况。
+
+## English Quick Start
+
+Build:
+
+```powershell
+npm install
+npm run package:win
+```
+
+Backup on the source machine:
+
+```powershell
+skills-migration.exe backup --out backups/latest --zip export.zip
+```
+
+Preview and restore on the target machine:
+
+```powershell
+skills-migration.exe restore --from backups/latest --preview --strategy skip
+skills-migration.exe restore --from backups/latest --strategy skip
+```
 
 ## Reference Alignment
 
-This MVP borrows the product shape from the requested references:
+This MVP borrows the product shape from:
 
-- opencode-style local config sync, with a manifest-first backup directory.
-- Hermes-like migration flow: scan, map, preview, restore.
-- Claude Code backup style: global/project config discovery and private GitHub option.
-- Multi-agent backup scripts: one scanner covering several agent homes.
-- Cross-tool skills conversion groundwork: category inference and portable manifest entries.
-- `npx skills` style package-manager ergonomics: small commands that can later become install/publish flows.
+- opencode-style local config sync with a manifest-first backup directory;
+- Hermes-like scan, map, preview, restore flow;
+- Claude Code backup style global/project config discovery;
+- multi-agent backup scripts covering several agent homes;
+- cross-tool skills conversion groundwork;
+- `npx skills` style package-manager ergonomics.
