@@ -1,14 +1,16 @@
 import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { exportMigrationPackage } from "./exporter.js";
-import { importMigrationPackage, planImport, rollback } from "./importer.js";
+import { exportToFolder } from "./export-to-folder.js";
+import { importMigrationPackage, planImport, previewImportPackage, rollback, writeConfigReviewChoices } from "./importer.js";
 import { scan } from "./scanner.js";
 
 const appDir = process.env.SKILLS_MIGRATOR_APP_DIR ?? process.cwd();
 const webRoot = path.resolve(appDir, "web");
 
-export async function startServer(port = 5174): Promise<void> {
+export async function startServer(port = 5174): Promise<http.Server> {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
@@ -29,15 +31,55 @@ export async function startServer(port = 5174): Promise<void> {
         });
       }
 
+      if (url.pathname === "/api/export/folder" && req.method === "POST") {
+        const backupDir = path.resolve(url.searchParams.get("dir") ?? "local-backup");
+        const result = await exportToFolder({
+          backupDir,
+          outputDir: backupDir,
+          gitCommit: url.searchParams.get("git") === "true"
+        });
+        return sendJson(res, result);
+      }
+
+      if (url.pathname === "/api/import/upload" && req.method === "POST") {
+        const fileName = url.searchParams.get("name") ?? "migration.zip";
+        const target = path.join(os.tmpdir(), `skills-migration-upload-${Date.now()}-${path.basename(fileName)}`);
+        await fs.writeFile(target, await readBody(req));
+        return sendJson(res, { archivePath: target });
+      }
+
+      if (url.pathname === "/api/import/manifest") {
+        const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
+        const result = await previewImportPackage({ archivePath, dryRun: true });
+        return sendJson(res, {
+          manifest: result.manifest,
+          extractDir: result.extractDir,
+          restorePlanPath: result.restorePlanPath,
+          restorePlan: result.restorePlan,
+          configReview: result.configReview,
+          mcpRuntime: result.mcpRuntime
+        });
+      }
+
       if (url.pathname === "/api/import/preview") {
         const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
         const result = await planImport({ archivePath, dryRun: true });
         return sendJson(res, result);
       }
 
+      if (url.pathname === "/api/config-review/apply" && req.method === "POST") {
+        const body = JSON.parse((await readBody(req)).toString("utf8")) as {
+          restorePlanPath: string;
+          choices: Record<string, "skip" | "backup_then_overwrite" | "merge" | "rename_imported">;
+        };
+        const plan = await writeConfigReviewChoices(body.restorePlanPath, body.choices);
+        return sendJson(res, { restorePlan: plan });
+      }
+
       if (url.pathname === "/api/import/run" && req.method === "POST") {
         const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
-        const result = await importMigrationPackage({ archivePath });
+        const restorePlanPath = url.searchParams.get("plan") ? path.resolve(url.searchParams.get("plan")!) : undefined;
+        const result = await importMigrationPackage({ archivePath, restorePlanPath });
         return sendJson(res, {
           actions: result.restorePlan.actions,
           restorePlanPath: result.restorePlanPath,
@@ -59,7 +101,18 @@ export async function startServer(port = 5174): Promise<void> {
   });
 
   await new Promise<void>((resolve) => server.listen(port, resolve));
-  console.log(`Skills Migration WebUI: http://localhost:${port}`);
+  const address = server.address();
+  const actualPort = typeof address === "object" && address ? address.port : port;
+  console.log(`Skills Migration WebUI: http://localhost:${actualPort}`);
+  return server;
+}
+
+async function readBody(req: http.IncomingMessage): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 async function serveStatic(urlPath: string, res: http.ServerResponse): Promise<void> {

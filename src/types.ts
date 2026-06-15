@@ -103,11 +103,51 @@ export interface RestorePlanAction {
   category: Category;
   source_path: string;
   target_path: string;
-  action: "create" | "merge" | "rename" | "skip" | "confirm" | "overwrite";
+  action: "create" | "merge" | "rename" | "skip" | "confirm" | "overwrite" | "backup_then_overwrite" | "rename_imported";
   status: "planned" | "done" | "skipped";
   reason?: string;
   backup_path?: string;
   checksum?: string;
+}
+
+export interface ConfigReviewItem {
+  id: string;
+  agent: AgentName;
+  category: Category;
+  source_file: string;
+  target_file: string;
+  target_exists: boolean;
+  diff_summary: DiffSummary;
+  recommended_action: "skip" | "backup_then_overwrite" | "merge" | "rename_imported";
+  selected_action?: "skip" | "backup_then_overwrite" | "merge" | "rename_imported";
+}
+
+export interface DiffSummary {
+  type: "json" | "text" | "missing_target";
+  added: string[];
+  changed: string[];
+  removed: string[];
+  preview: string;
+}
+
+export interface McpRuntimeServer {
+  agent: AgentName;
+  source_file: string;
+  server_name: string;
+  command?: string;
+  args: string[];
+  env_keys: string[];
+  status: "ready" | "missing_runtime" | "missing_path" | "skipped_secret_env" | "unknown";
+  details: string[];
+}
+
+export interface ExportToFolderResult {
+  exportDir: string;
+  archivePath: string;
+  latestZip: string;
+  manifestLatest: string;
+  historyPath: string;
+  gitCommit?: string;
 }
 
 export interface RestorePlan {
@@ -142,6 +182,7 @@ export interface ImportOptions {
   platform?: NodeJS.Platform;
   backupRoot?: string;
   confirmSettings?: boolean;
+  restorePlanPath?: string;
 }
 
 export interface RollbackOptions {

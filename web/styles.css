@@ -208,6 +208,41 @@ section {
   font-size: 14px;
 }
 
+.preview-grid,
+.review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.preview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.preview-grid div,
+.review-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.review-item {
+  display: grid;
+  gap: 8px;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-ready { color: var(--success); }
+.status-missing_runtime,
+.status-missing_path { color: var(--danger); }
+.status-skipped_secret_env { color: var(--warning); }
+.status-unknown { color: var(--ink-soft); }
+
 .metrics strong {
   display: block;
   font-size: 30px;
@@ -391,7 +426,8 @@ pre {
   .metrics,
   .agent-grid,
   .settings-grid,
-  .feature-grid {
+  .feature-grid,
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 

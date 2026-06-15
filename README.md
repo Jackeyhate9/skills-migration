@@ -175,6 +175,21 @@ docs/manifest.schema.json
 - `files[].portable_target_path`
 - `skipped_sensitive_files`
 
+## v0.2 Status / v0.2 状态
+
+- WebUI now has a migration package picker. In Tauri it can choose a `.zip` package or an extracted export directory path; in browser fallback it uploads `.zip` files and keeps Advanced manual path input for directories.
+- Config Review is implemented for settings/config files. Users can choose `skip`, `backup_then_overwrite`, `merge`, or `rename_imported`; choices are written into `restore_plan.json`.
+- JSON config files get structured diff summaries. TOML/YAML/text files get text diff summaries.
+- MCP Runtime Check is implemented as a checker only. It parses MCP config, checks known runtimes and local paths, generates `mcp_runtime_report.md`, and never installs dependencies.
+- Export to Folder is implemented: `latest.zip`, `manifest-latest.json`, `exports/*.zip`, and `history.json`. If the folder is already a git repo, optional `--git-commit` creates a local commit. It never pushes.
+
+Current remaining limitations:
+
+- Browser fallback cannot safely expose arbitrary local directory paths, so extracted-directory import is best in Tauri or via Advanced manual path.
+- Config Review UI is functional but intentionally simple; richer side-by-side diff rendering is still future work.
+- MCP Runtime Check reports missing dependencies and paths but does not install or fix them.
+- GitHub/cloud sync remains explicit user responsibility; use a private repo or private sync tool.
+
 ## Smoke Test
 
 ```powershell

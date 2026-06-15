@@ -4,6 +4,10 @@ const logsBox = document.querySelector("#logsBox");
 const statusPill = document.querySelector("#statusPill");
 const agentGrid = document.querySelector("#agentGrid");
 const restorePlanBox = document.querySelector("#restorePlanBox");
+const packagePreview = document.querySelector("#packagePreview");
+const configReviewList = document.querySelector("#configReviewList");
+const mcpRuntimeList = document.querySelector("#mcpRuntimeList");
+let currentRestorePlanPath = "";
 
 document.querySelectorAll("nav a").forEach((link) => {
   link.addEventListener("click", () => {
@@ -71,21 +75,77 @@ document.querySelector("#exportBtn").addEventListener("click", async () => {
   log("Export complete", result);
 });
 
+document.querySelector("#exportFolderBtn").addEventListener("click", async () => {
+  const dir = encodeURIComponent(document.querySelector("#backupDir").value || "local-backup");
+  const git = document.querySelector("#gitCommit").checked;
+  const result = await getJson(`/api/export/folder?dir=${dir}&git=${git}`, { method: "POST" });
+  document.querySelector("#exportResult").textContent = `Latest zip ${result.latestZip}; history ${result.historyPath}`;
+  document.querySelector("#archivePath").value = result.latestZip;
+  log("Export to folder complete", result);
+});
+
+document.querySelector("#choosePackageBtn").addEventListener("click", async () => {
+  const tauriOpen = window.__TAURI__?.dialog?.open || window.__TAURI__?.core?.invoke;
+  if (tauriOpen && window.__TAURI__?.dialog?.open) {
+    const chooseDir = window.confirm("选择已解压导出目录？点击“取消”选择 .zip 迁移包。");
+    const selected = await window.__TAURI__.dialog.open({
+      multiple: false,
+      directory: chooseDir,
+      filters: chooseDir ? undefined : [{ name: "Migration package", extensions: ["zip"] }]
+    });
+    if (selected) {
+      document.querySelector("#archivePath").value = selected;
+      await loadPackagePreview(selected);
+    }
+  } else {
+    document.querySelector("#packageFileInput").click();
+  }
+});
+
+document.querySelector("#packageFileInput").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const upload = await fetch(`/api/import/upload?name=${encodeURIComponent(file.name)}`, {
+    method: "POST",
+    body: await file.arrayBuffer()
+  }).then((response) => response.json());
+  document.querySelector("#archivePath").value = upload.archivePath;
+  await loadPackagePreview(upload.archivePath);
+});
+
 document.querySelector("#previewBtn").addEventListener("click", async () => {
   const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
-  const result = await getJson(`/api/import/preview?from=${archive}`);
-  renderActions(result.actions);
+  const result = await getJson(`/api/import/manifest?from=${archive}`);
+  renderActions(result.restorePlan.actions);
+  renderPackagePreview(result.manifest);
   renderRestorePlan(result.restorePlan);
-  document.querySelector("#snapshotPath").value = result.snapshotDir;
-  log("Import preview ready", { actions: result.actions.length, snapshotDir: result.snapshotDir });
+  renderConfigReview(result.configReview);
+  renderMcpRuntime(result.mcpRuntime.servers);
+  currentRestorePlanPath = result.restorePlanPath;
+  document.querySelector("#snapshotPath").value = result.restorePlan.backup_snapshot;
+  log("Import preview ready", { actions: result.restorePlan.actions.length, snapshotDir: result.restorePlan.backup_snapshot });
 });
 
 document.querySelector("#restoreBtn").addEventListener("click", async () => {
   const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
-  const result = await getJson(`/api/import/run?from=${archive}`, { method: "POST" });
+  const plan = currentRestorePlanPath ? `&plan=${encodeURIComponent(currentRestorePlanPath)}` : "";
+  const result = await getJson(`/api/import/run?from=${archive}${plan}`, { method: "POST" });
   renderActions(result.actions);
   document.querySelector("#snapshotPath").value = result.snapshotDir;
   log("Restore complete", result);
+});
+
+document.querySelector("#applyConfigReviewBtn").addEventListener("click", async () => {
+  const choices = {};
+  document.querySelectorAll("[data-config-choice]").forEach((select) => {
+    choices[select.dataset.configChoice] = select.value;
+  });
+  const result = await getJson("/api/config-review/apply", {
+    method: "POST",
+    body: JSON.stringify({ restorePlanPath: currentRestorePlanPath, choices })
+  });
+  renderRestorePlan(result.restorePlan);
+  log("Config choices applied", choices);
 });
 
 document.querySelector("#rollbackBtn").addEventListener("click", async () => {
@@ -115,6 +175,62 @@ function renderRestorePlan(plan) {
     skip: plan.actions.filter((action) => action.action === "skip").length,
     actions: plan.actions.slice(0, 25)
   }, null, 2);
+}
+
+async function loadPackagePreview(archivePath) {
+  const result = await getJson(`/api/import/manifest?from=${encodeURIComponent(archivePath)}`);
+  renderPackagePreview(result.manifest);
+  renderRestorePlan(result.restorePlan);
+  renderConfigReview(result.configReview);
+  renderMcpRuntime(result.mcpRuntime.servers);
+  currentRestorePlanPath = result.restorePlanPath;
+  document.querySelector("#snapshotPath").value = result.restorePlan.backup_snapshot;
+}
+
+function renderPackagePreview(manifest) {
+  packagePreview.innerHTML = [
+    ["export_version", manifest.export_version],
+    ["created_at", manifest.created_at],
+    ["source_os", manifest.source_os],
+    ["source_hostname", manifest.source_hostname],
+    ["detected_agents", manifest.detected_agents.join(", ")],
+    ["file_count", manifest.file_count],
+    ["total_size", manifest.total_size],
+    ["skipped_sensitive_files", manifest.skipped_sensitive_files.length]
+  ].map(([label, value]) => `<div><strong>${label}</strong><span>${value}</span></div>`).join("");
+}
+
+function renderConfigReview(items) {
+  configReviewList.innerHTML = items.length === 0 ? "No settings/config conflicts need review." : items.map((item) => `
+    <div class="review-item">
+      <strong>${item.agent} · ${item.category}</strong>
+      <span>Source: ${item.source_file}</span>
+      <span>Target: ${item.target_file}</span>
+      <span>Target exists: ${item.target_exists}</span>
+      <span>${item.diff_summary.preview}</span>
+      <div class="review-actions">
+        <select data-config-choice="${item.id}">
+          ${["skip", "backup_then_overwrite", "merge", "rename_imported"].map((action) =>
+            `<option value="${action}" ${action === item.recommended_action ? "selected" : ""}>${action}</option>`
+          ).join("")}
+        </select>
+        <button class="secondary" onclick="alert(${JSON.stringify(JSON.stringify(item.diff_summary, null, 2))})">view_diff</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderMcpRuntime(servers) {
+  mcpRuntimeList.innerHTML = servers.length === 0 ? "No MCP configs detected." : servers.map((server) => `
+    <div class="review-item">
+      <strong class="status-${server.status}">${server.status}</strong>
+      <span>${server.agent} · ${server.server_name}</span>
+      <span>command: ${server.command || "unknown"}</span>
+      <span>args: ${server.args.join(" ")}</span>
+      <span>env keys: ${server.env_keys.join(", ") || "none"}</span>
+      <small>${server.details.join("; ")}</small>
+    </div>
+  `).join("");
 }
 
 function renderAgents(manifest) {

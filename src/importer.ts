@@ -4,6 +4,8 @@ import path from "node:path";
 import JSZip from "jszip";
 import { checksumFile, copyFileEnsuringDir, ensureDir, exists, timestampSlug } from "./fs-utils.js";
 import { getRestoreRoot } from "./scan-config.js";
+import { applyConfigReviewChoices, buildConfigReview } from "./config-review.js";
+import { checkMcpRuntimes } from "./mcp-runtime-checker.js";
 import type { ExportManifest, ImportOptions, RestorePlan, RestorePlanAction, RollbackOptions } from "./types.js";
 
 export async function importMigrationPackage(options: ImportOptions): Promise<{
@@ -20,15 +22,16 @@ export async function importMigrationPackage(options: ImportOptions): Promise<{
 
   const restorePlan = await buildRestorePlan(extractDir, manifest, options);
   const restorePlanPath = path.join(extractDir, "restore_plan.json");
-  await fs.writeFile(restorePlanPath, JSON.stringify(restorePlan, null, 2), "utf8");
+  const planToApply = options.restorePlanPath ? JSON.parse(await fs.readFile(options.restorePlanPath, "utf8")) as RestorePlan : restorePlan;
+  await fs.writeFile(restorePlanPath, JSON.stringify(planToApply, null, 2), "utf8");
 
   if (!options.dryRun) {
-    await applyRestorePlan(restorePlan, options);
+    await applyRestorePlan(planToApply, options);
   }
 
   const restoreReportPath = path.join(extractDir, "restore_report.md");
-  await writeRestoreReport(restoreReportPath, restorePlan, options.dryRun === true);
-  return { manifest, extractDir, restorePlan, restorePlanPath, restoreReportPath };
+  await writeRestoreReport(restoreReportPath, planToApply, options.dryRun === true);
+  return { manifest, extractDir, restorePlan: planToApply, restorePlanPath, restoreReportPath };
 }
 
 export const runImport = importMigrationPackage;
@@ -46,6 +49,41 @@ export async function planImport(options: ImportOptions): Promise<{
     snapshotDir: result.restorePlan.backup_snapshot,
     restorePlan: result.restorePlan
   };
+}
+
+export async function previewImportPackage(options: ImportOptions): Promise<{
+  manifest: ExportManifest;
+  extractDir: string;
+  restorePlan: RestorePlan;
+  restorePlanPath: string;
+  configReview: Awaited<ReturnType<typeof buildConfigReview>>;
+  mcpRuntime: Awaited<ReturnType<typeof checkMcpRuntimes>>;
+}> {
+  const extractDir = await extractArchive(options.archivePath);
+  const manifest = await readExportManifest(extractDir);
+  validateManifest(manifest);
+  await verifyChecksums(extractDir, manifest);
+  const restorePlan = await buildRestorePlan(extractDir, manifest, { ...options, dryRun: true });
+  const restorePlanPath = path.join(extractDir, "restore_plan.json");
+  await fs.writeFile(restorePlanPath, JSON.stringify(restorePlan, null, 2), "utf8");
+  return {
+    manifest,
+    extractDir,
+    restorePlan,
+    restorePlanPath,
+    configReview: await buildConfigReview(restorePlan),
+    mcpRuntime: await checkMcpRuntimes(extractDir, manifest)
+  };
+}
+
+export async function writeConfigReviewChoices(
+  restorePlanPath: string,
+  choices: Record<string, "skip" | "backup_then_overwrite" | "merge" | "rename_imported">
+): Promise<RestorePlan> {
+  const plan = JSON.parse(await fs.readFile(restorePlanPath, "utf8")) as RestorePlan;
+  const next = await applyConfigReviewChoices(plan, choices);
+  await fs.writeFile(restorePlanPath, JSON.stringify(next, null, 2), "utf8");
+  return next;
 }
 
 export async function rollback(options: RollbackOptions): Promise<{ restored: number; removed: number; reportPath: string }> {
@@ -181,6 +219,10 @@ async function applyRestorePlan(plan: RestorePlan, options: ImportOptions): Prom
 
     if (action.action === "merge" && existedBefore && isJsonFile(action.target_path)) {
       await mergeJsonFiles(action.target_path, action.source_path);
+    } else if (action.action === "rename_imported") {
+      await copyFileEnsuringDir(action.source_path, action.target_path);
+    } else if (action.action === "backup_then_overwrite") {
+      await copyFileEnsuringDir(action.source_path, action.target_path);
     } else {
       await copyFileEnsuringDir(action.source_path, action.target_path);
     }
@@ -257,6 +299,7 @@ async function writeRestoreReport(reportPath: string, plan: RestorePlan, dryRun:
     `- Create: ${plan.actions.filter((action) => action.action === "create").length}`,
     `- Merge: ${plan.actions.filter((action) => action.action === "merge").length}`,
     `- Rename: ${plan.actions.filter((action) => action.action === "rename").length}`,
+    `- Backup then overwrite: ${plan.actions.filter((action) => action.action === "backup_then_overwrite").length}`,
     `- Skipped/needs confirmation: ${plan.actions.filter((action) => action.action === "skip" || action.action === "confirm").length}`,
     "",
     "## Actions",

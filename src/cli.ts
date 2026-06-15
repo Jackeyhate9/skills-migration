@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
+import { exportToFolder } from "./export-to-folder.js";
 import { exportMigrationPackage } from "./exporter.js";
 import { importMigrationPackage, planImport, rollback } from "./importer.js";
 import { scan } from "./scanner.js";
@@ -50,6 +51,23 @@ async function main(): Promise<void> {
     if (result.manifest.skipped_sensitive_files.length > 0) {
       console.log(`Skipped sensitive files: ${result.manifest.skipped_sensitive_files.length}`);
     }
+    return;
+  }
+
+  if (command === "export-folder") {
+    const backupDir = path.resolve(argValue(args, "--dir", argValue(args, "--output", "local-backup"))!);
+    const result = await exportToFolder({
+      backupDir,
+      outputDir: backupDir,
+      gitCommit: hasFlag(args, "--git-commit"),
+      includeSessions: hasFlag(args, "--include-sessions"),
+      includeSecrets: hasFlag(args, "--include-secrets")
+    });
+    console.log(`Exported to folder: ${backupDir}`);
+    console.log(`Latest zip: ${result.latestZip}`);
+    console.log(`Manifest latest: ${result.manifestLatest}`);
+    console.log(`History: ${result.historyPath}`);
+    if (result.gitCommit) console.log(`Git commit: ${result.gitCommit}`);
     return;
   }
 
@@ -113,6 +131,7 @@ Usage:
   skills-migration.exe web [--port 5174]
   skills-migration.exe scan [--out manifest.json] [--include-sessions] [--include-secrets]
   skills-migration.exe export --output ./exports
+  skills-migration.exe export-folder --dir ./local-backup [--git-commit]
   skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip [--preview] [--home C:\\Users\\you]
   skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
 

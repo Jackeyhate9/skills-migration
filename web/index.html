@@ -22,6 +22,8 @@
         <a href="#export">Export</a>
         <a href="#import">Import</a>
         <a href="#restore-plan">Restore Plan</a>
+        <a href="#config-review">Config Review</a>
+        <a href="#mcp-runtime">MCP Runtime</a>
         <a href="#conflicts">Conflicts</a>
         <a href="#rollback">Backup & Rollback</a>
         <a href="#logs">Logs</a>
@@ -98,7 +100,12 @@
             <h2>Export</h2>
             <p>Create `exports/agent-skills-export-YYYYMMDD-HHMMSS`, manifest, restore plan template, logs, and zip.</p>
           </div>
-          <button id="exportBtn">Export Migration Package</button>
+          <div class="toolbar">
+            <button id="exportBtn">Export Migration Package</button>
+            <input id="backupDir" type="text" placeholder="local-backup" />
+            <label class="check"><input id="gitCommit" type="checkbox" /> git commit</label>
+            <button id="exportFolderBtn" class="secondary">Export to Folder</button>
+          </div>
         </div>
         <p id="exportResult" class="result-line">Waiting for export.</p>
       </section>
@@ -110,11 +117,14 @@
             <p>Import a migration zip or exported directory. Preview first, then restore with snapshot backup.</p>
           </div>
           <div class="toolbar">
+            <button id="choosePackageBtn">选择迁移包</button>
+            <input id="packageFileInput" type="file" accept=".zip,application/zip" hidden />
             <input id="archivePath" type="text" placeholder="exports/agent-skills-export-YYYYMMDD-HHMMSS.zip" />
             <button id="previewBtn">Preview restore</button>
             <button id="restoreBtn" class="secondary">Import Migration Package</button>
           </div>
         </div>
+        <div id="packagePreview" class="preview-grid"></div>
       </section>
 
       <section id="restore-plan">
@@ -125,6 +135,27 @@
           </div>
         </div>
         <pre id="restorePlanBox">No restore plan yet.</pre>
+      </section>
+
+      <section id="config-review">
+        <div class="section-head">
+          <div>
+            <h2>Config Review</h2>
+            <p>Review settings/config files one by one before writing. Choices are saved into restore_plan.json.</p>
+          </div>
+          <button id="applyConfigReviewBtn" class="secondary">Apply Config Choices</button>
+        </div>
+        <div id="configReviewList" class="review-list">No config review yet.</div>
+      </section>
+
+      <section id="mcp-runtime">
+        <div class="section-head">
+          <div>
+            <h2>MCP Runtime Check</h2>
+            <p>Checks command availability and local paths. It never installs dependencies.</p>
+          </div>
+        </div>
+        <div id="mcpRuntimeList" class="review-list">No MCP runtime check yet.</div>
       </section>
 
       <section id="conflicts">
