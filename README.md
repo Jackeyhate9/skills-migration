@@ -1,25 +1,24 @@
 # Skills Migration
 
-Skills Migration 是一个 Windows 优先、跨平台可扩展的 AI Agent Skills 迁移工具。它可以扫描本机常见 AI coding agent 配置目录，识别 skills、agents、commands、prompts、MCP configs、settings、memories，并导出为可恢复的迁移包。
+Skills Migration 是一个 Windows 优先、跨平台可扩展的 AI Agent Skills 迁移工具。它聚焦跨机器迁移闭环：在源机器扫描并导出迁移 zip，在目标机器导入、生成恢复计划、处理冲突、创建备份快照，并支持 rollback。
 
-English summary: **Skills Migration** backs up and restores AI coding agent skills, prompts, MCP configs, settings, and memories across machines.
+English summary: **Skills Migration** exports and restores AI coding agent skills, prompts, commands, settings, and related config files across machines.
 
 ![Dashboard screenshot](docs/screenshots/dashboard.png)
 
-## 项目目标
+## 当前目标
 
-当你更换电脑、重装系统、切换工作环境时，AI Agent 的技能和配置往往散落在多个目录里。Skills Migration 的目标是：
+- 扫描 opencode、Hermes、Claude Code、Codex、OpenClaw、Cursor、Gemini CLI 的本地配置目录。
+- 导出 skills、prompts、commands、settings、memories，以及普通配置文件类别。
+- 默认跳过 secrets：`.env`、`*.pem`、`*.key`、`credentials.json`、`token.json`、`secrets.json`、含 `API_KEY` / `TOKEN` / `SECRET` / `PASSWORD` 的配置项。
+- 生成可复制到另一台电脑的 zip 迁移包。
+- 导入时校验 manifest 和 checksums。
+- 导入前创建 `backups/YYYYMMDD-HHMMSS-before-restore/`。
+- 生成 `restore_plan.json` 和 `restore_report.md`。
+- 冲突文件默认 rename 为 `*_imported`。
+- 支持 rollback 恢复导入前状态。
 
-- 一键扫描本机 AI Agent 配置；
-- 自动分类 skills、prompts、MCP、settings、memories；
-- 默认排除 API key、token、`.env` 和 secret-like 文件；
-- 生成 `manifest.json`，记录 checksum、目标恢复路径和风险级别；
-- 导出本地备份目录和 zip；
-- 在新机器上预览恢复内容；
-- 冲突时支持 `skip`、`overwrite`、`rename`；
-- 覆盖前自动创建 backup snapshot，支持回滚依据。
-
-## 适配的 Agent
+## 支持的 Agent
 
 | Agent / Tool | Windows 扫描路径 | macOS / Linux 扫描路径 | 状态 |
 | --- | --- | --- | --- |
@@ -37,78 +36,80 @@ English summary: **Skills Migration** backs up and restores AI coding agent skil
 - `agents`
 - `commands`
 - `prompts`
-- `mcp_configs`
+- `mcp_configs`，仅作为普通配置文件类别参与导出/导入，不做 MCP 产品级迁移或机器绑定
 - `settings`
 - `memories`
 - `sessions`，默认不迁移，可选开启
-- `secrets`，默认不迁移，只提示和打码
+- `secrets`，默认跳过
 
-## 一键导出迁移
+## 一键跨机器迁移
 
-源机器执行：
-
-```powershell
-skills-migration.exe backup --out backups/latest --zip export.zip
-```
-
-把 `export.zip` 或 `backups/latest` 复制到目标机器。
-
-目标机器先预览：
+源机器导出：
 
 ```powershell
-skills-migration.exe restore --from backups/latest --preview --strategy skip
+skills-migration.exe export --output ./exports
 ```
 
-确认后恢复：
+会生成：
+
+```text
+exports/agent-skills-export-YYYYMMDD-HHMMSS/
+├─ manifest.json
+├─ restore_plan.template.json
+├─ agents/
+│  ├─ opencode/
+│  ├─ hermes/
+│  ├─ claude/
+│  └─ codex/
+└─ logs/
+   └─ export_report.md
+
+exports/agent-skills-export-YYYYMMDD-HHMMSS.zip
+```
+
+把 zip 复制到目标机器，先预览：
 
 ```powershell
-skills-migration.exe restore --from backups/latest --strategy skip
+skills-migration.exe import ./agent-skills-export-YYYYMMDD-HHMMSS.zip --preview
 ```
 
-冲突策略：
+确认后导入：
 
-- `skip`：目标文件已存在时跳过；
-- `overwrite`：先备份目标原文件，再覆盖；
-- `rename`：写入为 `*.migrated-N.*`。
+```powershell
+skills-migration.exe import ./agent-skills-export-YYYYMMDD-HHMMSS.zip
+```
 
-## MCP 产品如何迁移
+回滚：
 
-Skills Migration 会迁移 MCP 配置文件本身，例如 `.mcp.json`、`mcp.json`、包含 `mcpServers` 的 settings/config 文件。
+```powershell
+skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
+```
 
-迁移时会额外分析：
+兼容 npm bin 名：
 
-- MCP server 名称；
-- `command`；
-- `cwd`；
-- `args` 中的本机路径；
-- 是否存在 `env` 配置块；
-- 源机器 `machine_id`、hostname、platform、arch、username。
+```powershell
+agent-migrator export --output ./exports
+agent-migrator import ./agent-skills-export-YYYYMMDD-HHMMSS.zip
+agent-migrator rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
+```
 
-重要说明：
+## 导入冲突策略
 
-- 当前不会做 DRM 式“绑定机器码后禁止恢复”。这样做会让跨电脑迁移失去意义。
-- manifest 会记录 `source_machine.machine_id`，用于恢复报告中校验“这个包来自哪台机器”。
-- 如果 MCP server 的 `command`、`cwd`、`args` 里出现 `C:\...`、`/Users/...`、`/home/...` 等机器本地路径，会在 `manifest.json` 和 `restore_report.md` 中提示需要在目标机器重绑。
-- API key、token、`.env` 和 secret-like 文件默认不迁移。目标机器应重新配置这些凭据。
-
-也就是说：MCP 配置会被迁移，机器相关路径和凭据会被提示重绑，而不是静默复制后假装可用。
+- `skills` / `prompts` / `commands` / `agents` / `memories`：默认 merge 到目标 agent 目录；同名文件冲突时写成 `*_imported`。
+- `settings` / `unknown config`：默认不直接覆盖，写入 restore plan，标记为需要确认。
+- `mcp_configs`：作为普通 JSON 配置文件处理；JSON 文件冲突时做 JSON merge，不做整文件覆盖。
+- `secrets`：默认 skip。
 
 ## Windows 可运行包
 
-构建 Windows 便携包：
+构建：
 
 ```powershell
 npm install
 npm run package:win
 ```
 
-输出目录：
-
-```text
-outputs\win-x64
-```
-
-可执行文件：
+输出：
 
 ```text
 outputs\win-x64\skills-migration.exe
@@ -120,21 +121,11 @@ outputs\win-x64\skills-migration.exe
 outputs\win-x64\skills-migration.exe web
 ```
 
-运行 CLI：
+查看基础功能：
 
 ```powershell
-outputs\win-x64\skills-migration.exe scan --out manifest.json
-outputs\win-x64\skills-migration.exe backup --out backups/latest --zip export.zip
-outputs\win-x64\skills-migration.exe restore --from backups/latest --preview
+outputs\win-x64\skills-migration.exe features
 ```
-
-`outputs\win-x64` 是可复制的发布目录，包含：
-
-- `skills-migration.exe`：Windows launcher；
-- `node.exe`：随包携带的 Node runtime；
-- `app\cli.cjs`：打包后的迁移逻辑；
-- `app\web`：前端界面；
-- `app\docs`：manifest schema 等文档资源。
 
 ## 本地开发
 
@@ -145,57 +136,21 @@ npm run typecheck
 npm run dev
 ```
 
-打开：
+WebUI：
 
 ```text
 http://localhost:5174
 ```
 
-## CLI 命令
+## WebUI 页面
 
-扫描并输出 manifest：
-
-```powershell
-npm run cli -- scan
-```
-
-扫描到文件：
-
-```powershell
-npm run cli -- scan --out outputs/manifest.json
-```
-
-导出备份目录和 zip：
-
-```powershell
-npm run cli -- backup --out backups/latest --zip outputs/export.zip
-```
-
-预览恢复：
-
-```powershell
-npm run cli -- restore --from backups/latest --preview --strategy skip
-```
-
-执行恢复：
-
-```powershell
-npm run cli -- restore --from backups/latest --strategy skip
-```
-
-## WebUI
-
-WebUI 页面包括：
-
-- Dashboard
 - Scan
 - Export
 - Import
+- Restore Plan
 - Conflicts
+- Backup & Rollback
 - Logs
-- Settings
-
-当前 WebUI 是本地优先设计：没有云账号，没有隐式上传，所有 API 都由本地 CLI 进程提供。
 
 ## Manifest
 
@@ -205,54 +160,20 @@ schema 文件：
 docs/manifest.schema.json
 ```
 
-每条 manifest entry 包含：
+`manifest.json` 包含：
 
-- `agent_name`
-- `detected_paths`
+- `export_version`
+- `created_at`
+- `source_os`
+- `source_hostname`
+- `detected_agents`
+- `categories`
 - `file_count`
-- `size`
-- `category`
-- `checksum`
-- `target_restore_path`
-- `risk_level`
-- `included`
-- `mcp`，当识别到 MCP config 时包含 server 详情
-- `migration_notes`，迁移到另一台机器时需要注意的事项
-
-manifest 顶层还包含：
-
-- `source_machine.machine_id`
-- `source_machine.hostname`
-- `source_machine.platform`
-- `source_machine.arch`
-- `source_machine.username`
-
-## 安全默认值
-
-- 默认排除 API keys、tokens、`.env`、credentials 和 secret-like 文件；
-- manifest 中的敏感预览会打码；
-- sessions 默认不迁移，除非显式传入 `--include-sessions`；
-- import 默认使用 `skip` 冲突策略；
-- overwrite 前会创建 backup snapshot；
-- 恢复完成后生成 `restore_report.md`；
-- 被占用或不可读文件会跳过，不会中断整个扫描。
-- MCP 配置中的机器本地路径会被标注为重绑提示。
-
-## 可选 GitHub 私有仓库备份
-
-GitHub 同步不是默认功能。推荐把迁移包放到 private repo：
-
-```powershell
-npm run cli -- backup --out backups/latest --zip outputs/export.zip
-gh repo create my-agent-skills-backup --private
-git init backups/latest
-git -C backups/latest add .
-git -C backups/latest commit -m "Backup AI agent skills"
-git -C backups/latest remote add origin https://github.com/YOUR_NAME/my-agent-skills-backup.git
-git -C backups/latest push -u origin main
-```
-
-请保持仓库为 private。除非你已经审计过迁移包，否则不要使用 `--include-secrets`。
+- `total_size`
+- `checksums`
+- `files[].original_path`
+- `files[].portable_target_path`
+- `skipped_sensitive_files`
 
 ## Smoke Test
 
@@ -260,60 +181,22 @@ git -C backups/latest push -u origin main
 npm run smoke
 ```
 
-测试会创建一个假的 Windows home，写入 Claude、Codex、OpenClaw 配置和一个 secret `.env`，然后验证导出、预览、恢复流程，并确认 secret 不会被恢复。
+测试覆盖：
 
-## 本机识别测试
+1. 创建 fake opencode/hermes/claude/codex 配置目录。
+2. 写入 fake skills/prompts/settings。
+3. 执行 scan。
+4. 执行 export。
+5. 清空目标测试目录。
+6. 执行 import。
+7. 验证文件恢复成功。
+8. 验证 `.env` / token / secret 文件被跳过。
+9. 验证冲突文件被 rename。
+10. 验证 rollback 可恢复导入前状态。
 
-在 MVP 开发机器上，发布版 exe 已成功识别真实 skills：
+## 已知限制
 
-```text
-skills category files: 13,109
-SKILL.md files: 1,735
-```
-
-按 Agent 统计的 `SKILL.md`：
-
-```text
-claude: 26
-codex: 1559
-openclaw: 46
-cursor: 1
-opencode: 27
-hermes: 74
-gemini: 2
-```
-
-实际数字取决于你的本机安装情况。
-
-## English Quick Start
-
-Build:
-
-```powershell
-npm install
-npm run package:win
-```
-
-Backup on the source machine:
-
-```powershell
-skills-migration.exe backup --out backups/latest --zip export.zip
-```
-
-Preview and restore on the target machine:
-
-```powershell
-skills-migration.exe restore --from backups/latest --preview --strategy skip
-skills-migration.exe restore --from backups/latest --strategy skip
-```
-
-## Reference Alignment
-
-This MVP borrows the product shape from:
-
-- opencode-style local config sync with a manifest-first backup directory;
-- Hermes-like scan, map, preview, restore flow;
-- Claude Code backup style global/project config discovery;
-- multi-agent backup scripts covering several agent homes;
-- cross-tool skills conversion groundwork;
-- `npx skills` style package-manager ergonomics.
+- WebUI 的导入路径目前需要手动输入 zip 或导出目录路径，还没有系统文件选择器。
+- settings/config 默认不覆盖，需要后续增加逐项确认 UI。
+- MCP configs 只按普通配置文件处理，不负责安装 MCP server runtime、不做机器码绑定。
+- GitHub 同步不是默认功能；建议只把已审计迁移包放到 private repo。

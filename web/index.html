@@ -21,7 +21,9 @@
         <a href="#scan">Scan</a>
         <a href="#export">Export</a>
         <a href="#import">Import</a>
+        <a href="#restore-plan">Restore Plan</a>
         <a href="#conflicts">Conflicts</a>
+        <a href="#rollback">Backup & Rollback</a>
         <a href="#logs">Logs</a>
         <a href="#settings">Settings</a>
       </nav>
@@ -50,8 +52,8 @@
         </div>
         <div class="feature-grid">
           <div><strong>Skills</strong><span>&#35782;&#21035;&#24182;&#36801;&#31227; SKILL.md &#21644;&#25216;&#33021;&#36164;&#28304;&#12290;</span></div>
-          <div><strong>MCP Configs</strong><span>&#35782;&#21035; mcpServers&#65292;&#25552;&#31034;&#26426;&#22120;&#36335;&#24452;&#37325;&#32465;&#12290;</span></div>
-          <div><strong>Machine Profile</strong><span>&#35760;&#24405;&#28304;&#26426;&#22120; machine_id&#65292;&#29992;&#20110;&#24674;&#22797;&#25253;&#21578;&#26657;&#23545;&#12290;</span></div>
+          <div><strong>Prompts & Commands</strong><span>&#23548;&#20986;&#24182;&#24674;&#22797; prompts&#12289;commands &#21644;&#30456;&#20851;&#36164;&#28304;&#12290;</span></div>
+          <div><strong>Settings</strong><span>&#29983;&#25104; restore plan&#65292;&#37197;&#32622;&#25991;&#20214;&#40664;&#35748;&#38656;&#35201;&#30830;&#35748;&#12290;</span></div>
           <div><strong>Safety</strong><span>API key&#12289;token&#12289;.env &#40664;&#35748;&#19981;&#36801;&#31227;&#12290;</span></div>
         </div>
         <div class="agent-grid" id="agentGrid"></div>
@@ -61,13 +63,13 @@
         <div class="section-head">
           <div>
             <h2>&#22522;&#30784;&#21151;&#33021;</h2>
-            <p>&#19968;&#20010; exe &#21516;&#26102;&#25552;&#20379; WebUI&#12289;&#25195;&#25551;&#12289;&#22791;&#20221;&#12289;&#24674;&#22797;&#21644; MCP &#36801;&#31227;&#26816;&#26597;&#12290;</p>
+            <p>&#19968;&#20010; exe &#21516;&#26102;&#25552;&#20379; WebUI&#12289;&#25195;&#25551;&#12289;&#23548;&#20986;&#12289;&#23548;&#20837;&#12289;&#24674;&#22797;&#35745;&#21010;&#21644;&#22238;&#28378;&#12290;</p>
           </div>
         </div>
         <div class="settings-grid">
           <div><strong>features</strong><span><code>skills-migration.exe features</code></span></div>
-          <div><strong>backup</strong><span><code>skills-migration.exe backup --out backups/latest --zip export.zip</code></span></div>
-          <div><strong>restore</strong><span><code>skills-migration.exe restore --from backups/latest --preview</code></span></div>
+          <div><strong>export</strong><span><code>skills-migration.exe export --output ./exports</code></span></div>
+          <div><strong>import</strong><span><code>skills-migration.exe import ./exports/agent-skills-export.zip --preview</code></span></div>
         </div>
       </section>
 
@@ -94,9 +96,9 @@
         <div class="section-head">
           <div>
             <h2>Export</h2>
-            <p>Create `backups/latest`, `manifest.json`, copied files, and `outputs/export.zip`.</p>
+            <p>Create `exports/agent-skills-export-YYYYMMDD-HHMMSS`, manifest, restore plan template, logs, and zip.</p>
           </div>
-          <button id="exportBtn">Export backup</button>
+          <button id="exportBtn">Export Migration Package</button>
         </div>
         <p id="exportResult" class="result-line">Waiting for export.</p>
       </section>
@@ -105,18 +107,24 @@
         <div class="section-head">
           <div>
             <h2>Import</h2>
-            <p>Preview first. Restore creates snapshots before overwrite actions.</p>
+            <p>Import a migration zip or exported directory. Preview first, then restore with snapshot backup.</p>
           </div>
           <div class="toolbar">
-            <select id="strategy">
-              <option value="skip">Skip conflicts</option>
-              <option value="overwrite">Overwrite conflicts</option>
-              <option value="rename">Rename conflicts</option>
-            </select>
+            <input id="archivePath" type="text" placeholder="exports/agent-skills-export-YYYYMMDD-HHMMSS.zip" />
             <button id="previewBtn">Preview restore</button>
-            <button id="restoreBtn" class="secondary">Restore with skip</button>
+            <button id="restoreBtn" class="secondary">Import Migration Package</button>
           </div>
         </div>
+      </section>
+
+      <section id="restore-plan">
+        <div class="section-head">
+          <div>
+            <h2>Restore Plan</h2>
+            <p>Shows create, merge, rename, skip, and confirmation actions before import writes files.</p>
+          </div>
+        </div>
+        <pre id="restorePlanBox">No restore plan yet.</pre>
       </section>
 
       <section id="conflicts">
@@ -131,6 +139,19 @@
             <thead><tr><th>Action</th><th>Status</th><th>Target</th><th>Reason</th></tr></thead>
             <tbody id="conflictRows"><tr><td colspan="4" class="empty">No import preview yet.</td></tr></tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="rollback">
+        <div class="section-head">
+          <div>
+            <h2>Backup & Rollback</h2>
+            <p>Every import creates `backups/YYYYMMDD-HHMMSS-before-restore`. Roll back from that snapshot.</p>
+          </div>
+          <div class="toolbar">
+            <input id="snapshotPath" type="text" placeholder="backups/YYYYMMDD-HHMMSS-before-restore" />
+            <button id="rollbackBtn" class="secondary">Rollback Last Import</button>
+          </div>
         </div>
       </section>
 
@@ -153,7 +174,7 @@
         </div>
         <div class="settings-grid">
           <div><strong>Secrets</strong><span>Excluded and redacted by default.</span></div>
-          <div><strong>MCP</strong><span>Configs are migrated; machine-local paths are reported for rebind.</span></div>
+          <div><strong>Config</strong><span>MCP/config files are treated as ordinary config files, not product-level MCP migration.</span></div>
           <div><strong>Rollback</strong><span>Snapshots are created before overwrite restore actions.</span></div>
         </div>
       </section>

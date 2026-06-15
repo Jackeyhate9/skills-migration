@@ -2,9 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getAgentRoots, getRestoreRoot, inferCategory, redactSecrets, riskFor, SKIP_DIR_NAMES } from "./scan-config.js";
 import { checksumFile, exists, portableId, readTextSample, safeRelative } from "./fs-utils.js";
-import { getMachineProfile } from "./machine.js";
-import { analyzeMcpConfig } from "./mcp.js";
-import type { AgentRoot, Manifest, ManifestEntry, ScanOptions, SecretFinding } from "./types.js";
+import type { AgentRoot, ScanManifest, ScanEntry, ScanOptions, SecretFinding } from "./types.js";
 
 async function* walkFiles(root: string): AsyncGenerator<string> {
   const entries = await fs.readdir(root, { withFileTypes: true });
@@ -19,8 +17,8 @@ async function* walkFiles(root: string): AsyncGenerator<string> {
   }
 }
 
-async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entries: ManifestEntry[]; secrets: SecretFinding[] }> {
-  const entries: ManifestEntry[] = [];
+async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entries: ScanEntry[]; secrets: SecretFinding[] }> {
+  const entries: ScanEntry[] = [];
   const secrets: SecretFinding[] = [];
   if (!(await exists(root.path))) return { entries, secrets };
 
@@ -30,11 +28,6 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
     const sample = await readTextSample(filePath).catch(() => "");
     const category = inferCategory(filePath, sample);
     if (category === "sessions" && !options.includeSessions) continue;
-    const mcp = category === "mcp_configs" ? analyzeMcpConfig(sample) : undefined;
-    const migrationNotes = mcp?.warnings.length ? [
-      "MCP config detected. Machine-local command/cwd/arg paths may need rebind on the target computer.",
-      ...mcp.warnings
-    ] : mcp ? ["MCP config detected. Verify target machine has the same MCP runtime commands installed."] : undefined;
 
     const risk = riskFor(category, filePath, sample);
     const relativePath = safeRelative(root.path, filePath);
@@ -46,7 +39,7 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
     const id = portableId(`${root.agentName}:${root.path}:${relativePath}`);
     const redactedPreview = isSecret ? redactSecrets(sample.slice(0, 500)) : undefined;
 
-    const manifestEntry: ManifestEntry = {
+    const manifestEntry: ScanEntry = {
       id,
       agent_name: root.agentName,
       category,
@@ -58,8 +51,6 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
       target_restore_path: targetRestorePath,
       risk_level: risk,
       included,
-      mcp,
-      migration_notes: migrationNotes,
       redacted_preview: redactedPreview,
       reason: included ? undefined : "Sensitive file or secret-like content detected; excluded by default."
     };
@@ -79,9 +70,9 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
   return { entries, secrets };
 }
 
-export async function scan(options: ScanOptions = {}): Promise<Manifest> {
+export async function scan(options: ScanOptions = {}): Promise<ScanManifest> {
   const roots = getAgentRoots(options);
-  const allEntries: ManifestEntry[] = [];
+  const allEntries: ScanEntry[] = [];
   const excludedSecrets: SecretFinding[] = [];
 
   for (const root of roots) {
@@ -90,7 +81,7 @@ export async function scan(options: ScanOptions = {}): Promise<Manifest> {
     excludedSecrets.push(...result.secrets);
   }
 
-  const summary = allEntries.reduce<Manifest["summary"]>(
+  const summary = allEntries.reduce<ScanManifest["summary"]>(
     (acc, entry) => {
       const agent = acc.agents[entry.agent_name] ?? { file_count: 0, size: 0 };
       agent.file_count += 1;
@@ -109,7 +100,6 @@ export async function scan(options: ScanOptions = {}): Promise<Manifest> {
     created_at: new Date().toISOString(),
     source_platform: options.platform ?? process.platform,
     source_home: options.homeDir ?? process.env.USERPROFILE ?? process.env.HOME ?? "",
-    source_machine: getMachineProfile(options),
     include_sessions: options.includeSessions === true,
     include_secrets: options.includeSecrets === true,
     entries: allEntries,

@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Windows-first, cross-platform AI coding agent skills and settings migration tool.",
-  "bin": "dist/src/cli.js",
+  "bin": {
+    "skills-migration": "dist/src/cli.js",
+    "agent-migrator": "dist/src/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/server.ts --port 5174",

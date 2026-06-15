@@ -270,7 +270,8 @@ section {
 }
 
 button,
-select {
+select,
+input {
   min-height: 42px;
   border: 1px solid #bdc8d8;
   border-radius: 8px;
@@ -299,6 +300,15 @@ button.secondary {
 
 button.secondary:hover {
   background: #f3f6fb;
+}
+
+input[type="text"] {
+  min-width: min(420px, 100%);
+}
+
+input[type="checkbox"] {
+  min-width: auto;
+  width: auto;
 }
 
 .table-wrap {

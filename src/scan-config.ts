@@ -1,6 +1,5 @@
 import os from "node:os";
 import path from "node:path";
-import { looksLikeMcpConfig } from "./mcp.js";
 import type { AgentName, AgentRoot, Category, RiskLevel, ScanOptions } from "./types.js";
 
 export const WINDOWS_SCAN_PATHS: Array<{ agentName: AgentName; displayName: string; template: string }> = [
@@ -28,11 +27,9 @@ export const POSIX_SCAN_PATHS: Array<{ agentName: AgentName; displayName: string
 export const SKIP_DIR_NAMES = new Set([
   ".git",
   "node_modules",
-  "Cache",
-  "GPUCache",
-  "logs",
-  "tmp",
-  "temp"
+    "logs",
+    "tmp",
+    "temp"
 ]);
 
 export const SECRET_FILE_PATTERNS = [
@@ -40,6 +37,11 @@ export const SECRET_FILE_PATTERNS = [
   /secret/i,
   /token/i,
   /credential/i,
+  /credentials\.json$/i,
+  /token\.json$/i,
+  /secrets\.json$/i,
+  /\.pem$/i,
+  /\.key$/i,
   /apikey/i,
   /api[-_]?key/i,
   /keyring/i
@@ -95,7 +97,7 @@ export function inferCategory(filePath: string, contentSample = ""): Category {
   if (normalized.includes("/prompts/") || normalized.includes("/prompt/")) return "prompts";
   if (normalized.includes("/memories/") || normalized.includes("/memory/") || name === "memory.md") return "memories";
   if (normalized.includes("/sessions/") || normalized.includes("/session/") || normalized.includes("/conversations/")) return "sessions";
-  if (looksLikeMcpConfig(filePath, contentSample)) return "mcp_configs";
+  if (name === ".mcp.json" || name.includes("mcp") || normalized.includes("/mcp/") || /"mcpServers"\s*:/.test(contentSample)) return "mcp_configs";
   if (["settings.json", "config.json", "config.toml", "settings.toml", "preferences.json"].includes(name)) return "settings";
   if (/\.(md|mdx|prompt|txt)$/i.test(name)) return "prompts";
   return "unknown";

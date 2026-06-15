@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { exportBackup } from "./exporter.js";
-import { runImport, planImport } from "./importer.js";
+import { exportMigrationPackage } from "./exporter.js";
+import { importMigrationPackage, planImport, rollback } from "./importer.js";
 import { scan } from "./scanner.js";
 import { startServer } from "./server.js";
-import type { ConflictStrategy } from "./types.js";
 
 function argValue(args: string[], name: string, fallback?: string): string | undefined {
   const index = args.indexOf(name);
@@ -38,38 +37,48 @@ async function main(): Promise<void> {
   }
 
   if (command === "export" || command === "backup") {
-    const outputDir = path.resolve(argValue(args, "--out", "backups/latest")!);
-    const zipPath = argValue(args, "--zip", "outputs/export.zip");
-    const result = await exportBackup({
+    const outputDir = path.resolve(argValue(args, "--output", argValue(args, "--out", "exports"))!);
+    const result = await exportMigrationPackage({
       outputDir,
-      zipPath: zipPath ? path.resolve(zipPath) : undefined,
       includeSessions: hasFlag(args, "--include-sessions"),
       includeSecrets: hasFlag(args, "--include-secrets")
     });
-    console.log(`Exported ${result.manifest.summary.included_files} files to ${result.outputDir}`);
-    if (result.zipPath) console.log(`Zip: ${result.zipPath}`);
-    if (result.manifest.excluded_secrets.length > 0) {
-      console.log(`Excluded sensitive files: ${result.manifest.excluded_secrets.length}`);
+    console.log(`Exported ${result.manifest.file_count} files`);
+    console.log(`Directory: ${result.exportDir}`);
+    console.log(`Zip: ${result.zipPath}`);
+    console.log(`Report: ${result.reportPath}`);
+    if (result.manifest.skipped_sensitive_files.length > 0) {
+      console.log(`Skipped sensitive files: ${result.manifest.skipped_sensitive_files.length}`);
     }
     return;
   }
 
   if (command === "import" || command === "restore") {
-    const archiveDir = path.resolve(argValue(args, "--from", "backups/latest")!);
-    const strategy = (argValue(args, "--strategy", "skip") ?? "skip") as ConflictStrategy;
+    const archivePath = path.resolve(args.find((arg) => !arg.startsWith("--")) ?? argValue(args, "--from", "backups/latest")!);
     const dryRun = hasFlag(args, "--dry-run") || hasFlag(args, "--preview");
     const restoreHomeDir = argValue(args, "--home");
-    const result = dryRun
-      ? await planImport({ archiveDir, strategy, dryRun, restoreHomeDir })
-      : await runImport({ archiveDir, strategy, dryRun, restoreHomeDir });
-    console.log(`${dryRun ? "Previewed" : "Restored"} ${result.actions.length} actions from ${archiveDir}`);
-    console.table(result.actions.map((action) => ({
-      action: action.action,
-      status: action.status,
-      target: action.target,
-      reason: action.reason ?? ""
-    })));
-    if ("reportPath" in result) console.log(`Report: ${result.reportPath}`);
+    const confirmSettings = hasFlag(args, "--confirm-settings");
+
+    if (dryRun) {
+      const result = await planImport({ archivePath, dryRun, restoreHomeDir, confirmSettings });
+      console.log(`Previewed ${result.actions.length} actions from ${archivePath}`);
+      printActionTable(result.actions);
+    } else {
+      const result = await importMigrationPackage({ archivePath, dryRun, restoreHomeDir, confirmSettings });
+      console.log(`Restored ${result.restorePlan.actions.length} actions from ${archivePath}`);
+      printActionTable(result.restorePlan.actions);
+      console.log(`Restore plan: ${result.restorePlanPath}`);
+      console.log(`Report: ${result.restoreReportPath}`);
+    }
+    return;
+  }
+
+  if (command === "rollback") {
+    const snapshotDir = path.resolve(argValue(args, "--snapshot", "")!);
+    if (!snapshotDir) throw new Error("Missing --snapshot backups/YYYYMMDD-HHMMSS-before-restore");
+    const result = await rollback({ snapshotDir });
+    console.log(`Rollback complete. Restored=${result.restored} Removed=${result.removed}`);
+    console.log(`Report: ${result.reportPath}`);
     return;
   }
 
@@ -87,6 +96,15 @@ async function main(): Promise<void> {
   printHelp();
 }
 
+function printActionTable(actions: Array<{ action: string; status: string; target_path: string; reason?: string }>): void {
+  console.table(actions.map((action) => ({
+    action: action.action,
+    status: action.status,
+    target: action.target_path,
+    reason: action.reason ?? ""
+  })));
+}
+
 function printHelp(): void {
   console.log(`Skills Migration
 
@@ -94,27 +112,23 @@ Usage:
   skills-migration.exe features
   skills-migration.exe web [--port 5174]
   skills-migration.exe scan [--out manifest.json] [--include-sessions] [--include-secrets]
-  skills-migration.exe backup [--out backups/latest] [--zip export.zip]
-  skills-migration.exe restore --from backups/latest [--preview] [--strategy skip|overwrite|rename] [--home C:\\Users\\you]
+  skills-migration.exe export --output ./exports
+  skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip [--preview] [--home C:\\Users\\you]
+  skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
 
 Basic features:
   - Detect Codex, OpenClaw, Claude Code, opencode, Hermes, Cursor, Gemini CLI
-  - Migrate skills, agents, commands, prompts, MCP configs, settings, memories
-  - Detect MCP server configs and warn about machine-local command/cwd paths
+  - Migrate skills, agents, commands, prompts, settings, memories
+  - Build a portable zip migration package and restore it on another machine
   - Exclude secrets/API keys by default
-  - Create restore snapshots before overwrite
-
-Safety defaults:
-  - sessions are skipped unless --include-sessions is set
-  - secret-like files and API keys are excluded unless --include-secrets is set
-  - import uses --strategy skip unless changed
+  - Create restore snapshots before writing files
 `);
 }
 
 function printFeatures(): void {
-  console.log(`Skills Migration 基础功能
+  console.log(`Skills Migration Features
 
-Agent 适配:
+Supported agents:
   - Codex: .codex
   - OpenClaw: .agents
   - Claude Code: .claude
@@ -123,22 +137,24 @@ Agent 适配:
   - Cursor: .cursor
   - Gemini CLI: .gemini
 
-可迁移内容:
+Portable content:
   - skills / agents / commands / prompts
-  - MCP configs: 识别 mcpServers、server command、cwd、env 标记
   - settings / memories
-  - sessions 可选迁移
+  - sessions are optional
+  - MCP/config files are treated as ordinary config files, not product-level MCP migration
 
-MCP 跨机器迁移:
-  - manifest 会记录 source_machine.machine_id 和 hostname
-  - MCP 文件会照常迁移到目标路径
-  - 如果 MCP server command/cwd/args 包含 C:\\、/Users、/home 等本机路径，会在 manifest 和 restore_report.md 中提示重绑
-  - API key、token、.env、secret-like 文件默认不迁移
+Cross-machine flow:
+  - export creates agent-skills-export-YYYYMMDD-HHMMSS.zip
+  - import validates manifest and checksums
+  - import creates backups/YYYYMMDD-HHMMSS-before-restore before writing
+  - conflicting files are renamed to *_imported
+  - .env, tokens, keys, and secret-like files are skipped by default
 
-一键命令:
-  skills-migration.exe backup --out backups/latest --zip export.zip
-  skills-migration.exe restore --from backups/latest --preview --strategy skip
-  skills-migration.exe restore --from backups/latest --strategy skip
+Commands:
+  skills-migration.exe export --output ./exports
+  skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip --preview
+  skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip
+  skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
 `);
 }
 

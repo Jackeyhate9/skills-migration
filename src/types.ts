@@ -21,7 +21,7 @@ export type Category =
 
 export type RiskLevel = "low" | "medium" | "high";
 
-export type ConflictStrategy = "skip" | "overwrite" | "rename";
+export type ConflictStrategy = "merge" | "skip" | "overwrite" | "rename";
 
 export interface AgentRoot {
   agentName: AgentName;
@@ -30,7 +30,7 @@ export interface AgentRoot {
   platform: NodeJS.Platform | "all";
 }
 
-export interface ManifestEntry {
+export interface ScanEntry {
   id: string;
   agent_name: AgentName;
   category: Category;
@@ -42,24 +42,8 @@ export interface ManifestEntry {
   target_restore_path: string;
   risk_level: RiskLevel;
   included: boolean;
-  mcp?: McpAnalysis;
-  migration_notes?: string[];
   redacted_preview?: string;
   reason?: string;
-}
-
-export interface McpServerRef {
-  name: string;
-  command?: string;
-  cwd?: string;
-  has_env?: boolean;
-  machine_bound_hints: string[];
-}
-
-export interface McpAnalysis {
-  server_count: number;
-  servers: McpServerRef[];
-  warnings: string[];
 }
 
 export interface SecretFinding {
@@ -70,15 +54,14 @@ export interface SecretFinding {
   redacted_preview?: string;
 }
 
-export interface Manifest {
+export interface ScanManifest {
   schema_version: "1.0.0";
   created_at: string;
   source_platform: NodeJS.Platform;
   source_home: string;
-  source_machine: MachineProfile;
   include_sessions: boolean;
   include_secrets: boolean;
-  entries: ManifestEntry[];
+  entries: ScanEntry[];
   excluded_secrets: SecretFinding[];
   summary: {
     agents: Record<string, { file_count: number; size: number }>;
@@ -88,14 +71,52 @@ export interface Manifest {
   };
 }
 
-export interface MachineProfile {
-  machine_id: string;
-  hostname: string;
-  platform: NodeJS.Platform;
-  arch: string;
-  username: string;
-  home_dir: string;
-  generated_at: string;
+export interface ExportManifestFile {
+  id: string;
+  agent_name: AgentName;
+  category: Category;
+  original_path: string;
+  portable_target_path: string;
+  relative_path: string;
+  size: number;
+  checksum: string;
+  risk_level: RiskLevel;
+}
+
+export interface ExportManifest {
+  export_version: "1.0.0";
+  created_at: string;
+  source_os: NodeJS.Platform;
+  source_hostname: string;
+  detected_agents: AgentName[];
+  categories: Category[];
+  file_count: number;
+  total_size: number;
+  checksums: Record<string, string>;
+  files: ExportManifestFile[];
+  skipped_sensitive_files: SecretFinding[];
+}
+
+export interface RestorePlanAction {
+  id: string;
+  agent_name: AgentName;
+  category: Category;
+  source_path: string;
+  target_path: string;
+  action: "create" | "merge" | "rename" | "skip" | "confirm" | "overwrite";
+  status: "planned" | "done" | "skipped";
+  reason?: string;
+  backup_path?: string;
+  checksum?: string;
+}
+
+export interface RestorePlan {
+  created_at: string;
+  source_export: string;
+  target_os: NodeJS.Platform;
+  target_home: string;
+  backup_snapshot: string;
+  actions: RestorePlanAction[];
 }
 
 export interface ScanOptions {
@@ -113,20 +134,16 @@ export interface ExportOptions extends ScanOptions {
 }
 
 export interface ImportOptions {
-  archiveDir: string;
+  archivePath: string;
   dryRun?: boolean;
-  strategy?: ConflictStrategy;
   restoreHomeDir?: string;
   restoreAppData?: string;
   restoreLocalAppData?: string;
   platform?: NodeJS.Platform;
+  backupRoot?: string;
+  confirmSettings?: boolean;
 }
 
-export interface RestoreAction {
-  entry_id: string;
-  source: string;
-  target: string;
-  action: "create" | "overwrite" | "skip" | "rename";
-  status: "planned" | "done" | "skipped";
-  reason?: string;
+export interface RollbackOptions {
+  snapshotDir: string;
 }

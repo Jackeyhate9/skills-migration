@@ -3,6 +3,7 @@ const conflictRows = document.querySelector("#conflictRows");
 const logsBox = document.querySelector("#logsBox");
 const statusPill = document.querySelector("#statusPill");
 const agentGrid = document.querySelector("#agentGrid");
+const restorePlanBox = document.querySelector("#restorePlanBox");
 
 document.querySelectorAll("nav a").forEach((link) => {
   link.addEventListener("click", () => {
@@ -65,21 +66,32 @@ async function runScan() {
 
 document.querySelector("#exportBtn").addEventListener("click", async () => {
   const result = await getJson("/api/export", { method: "POST" });
-  document.querySelector("#exportResult").textContent = `Exported to ${result.outputDir}; zip ${result.zipPath}`;
+  document.querySelector("#exportResult").textContent = `Exported ${result.fileCount} files to ${result.exportDir}; zip ${result.zipPath}`;
+  document.querySelector("#archivePath").value = result.zipPath;
   log("Export complete", result);
 });
 
 document.querySelector("#previewBtn").addEventListener("click", async () => {
-  const strategy = document.querySelector("#strategy").value;
-  const result = await getJson(`/api/import/preview?strategy=${strategy}`);
+  const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
+  const result = await getJson(`/api/import/preview?from=${archive}`);
   renderActions(result.actions);
+  renderRestorePlan(result.restorePlan);
+  document.querySelector("#snapshotPath").value = result.snapshotDir;
   log("Import preview ready", { actions: result.actions.length, snapshotDir: result.snapshotDir });
 });
 
 document.querySelector("#restoreBtn").addEventListener("click", async () => {
-  const result = await getJson("/api/import/run", { method: "POST" });
+  const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
+  const result = await getJson(`/api/import/run?from=${archive}`, { method: "POST" });
   renderActions(result.actions);
+  document.querySelector("#snapshotPath").value = result.snapshotDir;
   log("Restore complete", result);
+});
+
+document.querySelector("#rollbackBtn").addEventListener("click", async () => {
+  const snapshot = encodeURIComponent(document.querySelector("#snapshotPath").value);
+  const result = await getJson(`/api/rollback?snapshot=${snapshot}`, { method: "POST" });
+  log("Rollback complete", result);
 });
 
 function renderActions(actions) {
@@ -87,10 +99,22 @@ function renderActions(actions) {
     <tr>
       <td>${action.action}</td>
       <td>${action.status}</td>
-      <td>${action.target}</td>
+      <td>${action.target_path}</td>
       <td>${action.reason || ""}</td>
     </tr>
   `).join("");
+}
+
+function renderRestorePlan(plan) {
+  restorePlanBox.textContent = JSON.stringify({
+    backup_snapshot: plan.backup_snapshot,
+    create: plan.actions.filter((action) => action.action === "create").length,
+    merge: plan.actions.filter((action) => action.action === "merge").length,
+    rename: plan.actions.filter((action) => action.action === "rename").length,
+    confirm: plan.actions.filter((action) => action.action === "confirm").length,
+    skip: plan.actions.filter((action) => action.action === "skip").length,
+    actions: plan.actions.slice(0, 25)
+  }, null, 2);
 }
 
 function renderAgents(manifest) {

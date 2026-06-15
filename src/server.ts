@@ -1,10 +1,9 @@
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
-import { exportBackup } from "./exporter.js";
-import { planImport, runImport } from "./importer.js";
+import { exportMigrationPackage } from "./exporter.js";
+import { importMigrationPackage, planImport, rollback } from "./importer.js";
 import { scan } from "./scanner.js";
-import type { ConflictStrategy } from "./types.js";
 
 const appDir = process.env.SKILLS_MIGRATOR_APP_DIR ?? process.cwd();
 const webRoot = path.resolve(appDir, "web");
@@ -19,26 +18,38 @@ export async function startServer(port = 5174): Promise<void> {
       }
 
       if (url.pathname === "/api/export" && req.method === "POST") {
-        const outputDir = path.resolve("backups", "latest");
-        const result = await exportBackup({ outputDir, zipPath: path.resolve("outputs", "export.zip") });
+        const outputDir = path.resolve(url.searchParams.get("output") ?? "exports");
+        const result = await exportMigrationPackage({ outputDir });
         return sendJson(res, {
-          outputDir: result.outputDir,
+          exportDir: result.exportDir,
           zipPath: result.zipPath,
-          summary: result.manifest.summary,
-          excludedSecrets: result.manifest.excluded_secrets.length
+          reportPath: result.reportPath,
+          fileCount: result.manifest.file_count,
+          skippedSensitive: result.manifest.skipped_sensitive_files.length
         });
       }
 
       if (url.pathname === "/api/import/preview") {
-        const archiveDir = path.resolve(url.searchParams.get("from") ?? "backups/latest");
-        const strategy = (url.searchParams.get("strategy") ?? "skip") as ConflictStrategy;
-        const result = await planImport({ archiveDir, strategy, dryRun: true });
+        const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
+        const result = await planImport({ archivePath, dryRun: true });
         return sendJson(res, result);
       }
 
       if (url.pathname === "/api/import/run" && req.method === "POST") {
-        const result = await runImport({ archiveDir: path.resolve("backups/latest"), strategy: "skip" });
-        return sendJson(res, { actions: result.actions, reportPath: result.reportPath });
+        const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
+        const result = await importMigrationPackage({ archivePath });
+        return sendJson(res, {
+          actions: result.restorePlan.actions,
+          restorePlanPath: result.restorePlanPath,
+          reportPath: result.restoreReportPath,
+          snapshotDir: result.restorePlan.backup_snapshot
+        });
+      }
+
+      if (url.pathname === "/api/rollback" && req.method === "POST") {
+        const snapshotDir = path.resolve(url.searchParams.get("snapshot") ?? "");
+        const result = await rollback({ snapshotDir });
+        return sendJson(res, result);
       }
 
       return serveStatic(url.pathname, res);
