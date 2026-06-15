@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { looksLikeMcpConfig } from "./mcp.js";
 import type { AgentName, AgentRoot, Category, RiskLevel, ScanOptions } from "./types.js";
 
 export const WINDOWS_SCAN_PATHS: Array<{ agentName: AgentName; displayName: string; template: string }> = [
@@ -94,7 +95,7 @@ export function inferCategory(filePath: string, contentSample = ""): Category {
   if (normalized.includes("/prompts/") || normalized.includes("/prompt/")) return "prompts";
   if (normalized.includes("/memories/") || normalized.includes("/memory/") || name === "memory.md") return "memories";
   if (normalized.includes("/sessions/") || normalized.includes("/session/") || normalized.includes("/conversations/")) return "sessions";
-  if (name.includes("mcp") || normalized.includes("/mcp/")) return "mcp_configs";
+  if (looksLikeMcpConfig(filePath, contentSample)) return "mcp_configs";
   if (["settings.json", "config.json", "config.toml", "settings.toml", "preferences.json"].includes(name)) return "settings";
   if (/\.(md|mdx|prompt|txt)$/i.test(name)) return "prompts";
   return "unknown";

@@ -71,6 +71,28 @@ skills-migration.exe restore --from backups/latest --strategy skip
 - `overwrite`：先备份目标原文件，再覆盖；
 - `rename`：写入为 `*.migrated-N.*`。
 
+## MCP 产品如何迁移
+
+Skills Migration 会迁移 MCP 配置文件本身，例如 `.mcp.json`、`mcp.json`、包含 `mcpServers` 的 settings/config 文件。
+
+迁移时会额外分析：
+
+- MCP server 名称；
+- `command`；
+- `cwd`；
+- `args` 中的本机路径；
+- 是否存在 `env` 配置块；
+- 源机器 `machine_id`、hostname、platform、arch、username。
+
+重要说明：
+
+- 当前不会做 DRM 式“绑定机器码后禁止恢复”。这样做会让跨电脑迁移失去意义。
+- manifest 会记录 `source_machine.machine_id`，用于恢复报告中校验“这个包来自哪台机器”。
+- 如果 MCP server 的 `command`、`cwd`、`args` 里出现 `C:\...`、`/Users/...`、`/home/...` 等机器本地路径，会在 `manifest.json` 和 `restore_report.md` 中提示需要在目标机器重绑。
+- API key、token、`.env` 和 secret-like 文件默认不迁移。目标机器应重新配置这些凭据。
+
+也就是说：MCP 配置会被迁移，机器相关路径和凭据会被提示重绑，而不是静默复制后假装可用。
+
 ## Windows 可运行包
 
 构建 Windows 便携包：
@@ -194,6 +216,16 @@ docs/manifest.schema.json
 - `target_restore_path`
 - `risk_level`
 - `included`
+- `mcp`，当识别到 MCP config 时包含 server 详情
+- `migration_notes`，迁移到另一台机器时需要注意的事项
+
+manifest 顶层还包含：
+
+- `source_machine.machine_id`
+- `source_machine.hostname`
+- `source_machine.platform`
+- `source_machine.arch`
+- `source_machine.username`
 
 ## 安全默认值
 
@@ -204,6 +236,7 @@ docs/manifest.schema.json
 - overwrite 前会创建 backup snapshot；
 - 恢复完成后生成 `restore_report.md`；
 - 被占用或不可读文件会跳过，不会中断整个扫描。
+- MCP 配置中的机器本地路径会被标注为重绑提示。
 
 ## 可选 GitHub 私有仓库备份
 

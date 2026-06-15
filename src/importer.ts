@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { copyFileEnsuringDir, ensureDir, exists, timestampSlug } from "./fs-utils.js";
+import { getMachineProfile } from "./machine.js";
 import type { ConflictStrategy, ImportOptions, Manifest, RestoreAction } from "./types.js";
 
 export async function readManifest(archiveDir: string): Promise<Manifest> {
@@ -92,8 +93,12 @@ async function writeRestoreReport(
     "",
     `- Mode: ${dryRun ? "preview" : "restore"}`,
     `- Manifest created: ${manifest.created_at}`,
+    `- Source machine: ${manifest.source_machine?.hostname ?? "unknown"} (${manifest.source_machine?.machine_id ?? "unknown"})`,
+    `- Target machine: ${getMachineProfile().hostname} (${getMachineProfile().machine_id})`,
     `- Files considered: ${actions.length}`,
     `- Backup snapshot: ${snapshotDir}`,
+    "",
+    ...mcpReportLines(manifest),
     "",
     "## Actions",
     "",
@@ -104,4 +109,30 @@ async function writeRestoreReport(
     )
   ];
   await fs.writeFile(reportPath, lines.join("\n"), "utf8");
+}
+
+function mcpReportLines(manifest: Manifest): string[] {
+  const mcpEntries = manifest.entries.filter((entry) => entry.included && entry.category === "mcp_configs");
+  if (mcpEntries.length === 0) {
+    return ["## MCP Migration Notes", "", "No MCP configs were detected in this archive."];
+  }
+
+  const lines = ["## MCP Migration Notes", ""];
+  for (const entry of mcpEntries) {
+    lines.push(`### ${entry.agent_name}: ${entry.relative_path}`, "");
+    if (entry.mcp) {
+      lines.push(`- MCP servers: ${entry.mcp.server_count}`);
+      for (const server of entry.mcp.servers) {
+        lines.push(`- ${server.name}: command=${server.command ?? "unknown"} cwd=${server.cwd ?? "not set"} env=${server.has_env ? "yes" : "no"}`);
+        for (const hint of server.machine_bound_hints) {
+          lines.push(`  - Rebind warning: ${hint}`);
+        }
+      }
+    }
+    for (const note of entry.migration_notes ?? []) {
+      lines.push(`- ${note}`);
+    }
+    lines.push("");
+  }
+  return lines;
 }

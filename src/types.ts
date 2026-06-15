@@ -42,8 +42,24 @@ export interface ManifestEntry {
   target_restore_path: string;
   risk_level: RiskLevel;
   included: boolean;
+  mcp?: McpAnalysis;
+  migration_notes?: string[];
   redacted_preview?: string;
   reason?: string;
+}
+
+export interface McpServerRef {
+  name: string;
+  command?: string;
+  cwd?: string;
+  has_env?: boolean;
+  machine_bound_hints: string[];
+}
+
+export interface McpAnalysis {
+  server_count: number;
+  servers: McpServerRef[];
+  warnings: string[];
 }
 
 export interface SecretFinding {
@@ -59,6 +75,7 @@ export interface Manifest {
   created_at: string;
   source_platform: NodeJS.Platform;
   source_home: string;
+  source_machine: MachineProfile;
   include_sessions: boolean;
   include_secrets: boolean;
   entries: ManifestEntry[];
@@ -69,6 +86,16 @@ export interface Manifest {
     included_files: number;
     total_size: number;
   };
+}
+
+export interface MachineProfile {
+  machine_id: string;
+  hostname: string;
+  platform: NodeJS.Platform;
+  arch: string;
+  username: string;
+  home_dir: string;
+  generated_at: string;
 }
 
 export interface ScanOptions {

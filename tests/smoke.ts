@@ -14,31 +14,52 @@ async function main(): Promise<void> {
   const zipPath = path.join(tmp, "export.zip");
 
   await fs.mkdir(path.join(sourceHome, ".claude", "skills", "reviewer"), { recursive: true });
+  await fs.mkdir(path.join(sourceHome, ".claude"), { recursive: true });
   await fs.mkdir(path.join(sourceHome, ".codex", "memories"), { recursive: true });
   await fs.mkdir(path.join(sourceHome, ".agents", "skills", "openclaw-demo"), { recursive: true });
   await fs.writeFile(path.join(sourceHome, ".claude", "skills", "reviewer", "SKILL.md"), "# Reviewer\n", "utf8");
+  await fs.writeFile(
+    path.join(sourceHome, ".claude", ".mcp.json"),
+    JSON.stringify({
+      mcpServers: {
+        localTool: {
+          command: "C:\\Tools\\mcp-server.exe",
+          cwd: "C:\\Users\\old\\tool",
+          args: ["--config", "C:\\Users\\old\\tool\\config.json"],
+          env: { SAMPLE_ENV: "TARGET" }
+        }
+      }
+    }),
+    "utf8"
+  );
   await fs.writeFile(path.join(sourceHome, ".claude", ".env"), "OPENAI_API_KEY=sk-testsecretvalue1234567890\n", "utf8");
   await fs.writeFile(path.join(sourceHome, ".codex", "memories", "MEMORY.md"), "remember this\n", "utf8");
   await fs.writeFile(path.join(sourceHome, ".agents", "skills", "openclaw-demo", "SKILL.md"), "# OpenClaw Demo\n", "utf8");
 
   const manifest = await scan({ homeDir: sourceHome, platform: "win32" });
-  assert.equal(manifest.summary.total_files, 4);
-  assert.equal(manifest.summary.included_files, 3);
+  assert.equal(manifest.summary.total_files, 5);
+  assert.equal(manifest.summary.included_files, 4);
   assert.equal(manifest.excluded_secrets.length, 1);
+  assert.equal(manifest.source_machine.home_dir, sourceHome);
+  const mcpEntry = manifest.entries.find((entry) => entry.category === "mcp_configs");
+  assert.equal(mcpEntry?.mcp?.server_count, 1);
+  assert(mcpEntry?.migration_notes?.some((note) => note.includes("machine-local")));
 
   await exportBackup({ homeDir: sourceHome, platform: "win32", outputDir: archiveDir, zipPath });
   const preview = await planImport({ archiveDir, dryRun: true, restoreHomeDir: targetHome });
-  assert.equal(preview.actions.length, 3);
+  assert.equal(preview.actions.length, 4);
   assert(preview.actions.every((action) => action.target.startsWith(targetHome)));
 
   const restored = await runImport({ archiveDir, restoreHomeDir: targetHome, strategy: "skip" });
-  assert.equal(restored.actions.filter((action) => action.status === "done").length, 3);
+  assert.equal(restored.actions.filter((action) => action.status === "done").length, 4);
   assert.equal(
     await fs.readFile(path.join(targetHome, ".claude", "skills", "reviewer", "SKILL.md"), "utf8"),
     "# Reviewer\n"
   );
   assert.equal(await fileExists(path.join(targetHome, ".claude", ".env")), false);
   assert.equal(await fs.readFile(path.join(targetHome, ".agents", "skills", "openclaw-demo", "SKILL.md"), "utf8"), "# OpenClaw Demo\n");
+  assert.equal(await fileExists(path.join(targetHome, ".claude", ".mcp.json")), true);
+  assert((await fs.readFile(restored.reportPath, "utf8")).includes("MCP Migration Notes"));
 
   console.log(`Smoke test passed: ${tmp}`);
 }

@@ -8,6 +8,7 @@
     "created_at",
     "source_platform",
     "source_home",
+    "source_machine",
     "include_sessions",
     "include_secrets",
     "entries",
@@ -19,6 +20,19 @@
     "created_at": { "type": "string", "format": "date-time" },
     "source_platform": { "type": "string" },
     "source_home": { "type": "string" },
+    "source_machine": {
+      "type": "object",
+      "required": ["machine_id", "hostname", "platform", "arch", "username", "home_dir", "generated_at"],
+      "properties": {
+        "machine_id": { "type": "string" },
+        "hostname": { "type": "string" },
+        "platform": { "type": "string" },
+        "arch": { "type": "string" },
+        "username": { "type": "string" },
+        "home_dir": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      }
+    },
     "include_sessions": { "type": "boolean" },
     "include_secrets": { "type": "boolean" },
     "entries": {
@@ -69,6 +83,18 @@
           "target_restore_path": { "type": "string" },
           "risk_level": { "enum": ["low", "medium", "high"] },
           "included": { "type": "boolean" },
+          "mcp": {
+            "type": "object",
+            "properties": {
+              "server_count": { "type": "integer", "minimum": 0 },
+              "servers": { "type": "array" },
+              "warnings": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "migration_notes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "redacted_preview": { "type": "string" },
           "reason": { "type": "string" }
         }

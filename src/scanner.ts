@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getAgentRoots, getRestoreRoot, inferCategory, redactSecrets, riskFor, SKIP_DIR_NAMES } from "./scan-config.js";
 import { checksumFile, exists, portableId, readTextSample, safeRelative } from "./fs-utils.js";
+import { getMachineProfile } from "./machine.js";
+import { analyzeMcpConfig } from "./mcp.js";
 import type { AgentRoot, Manifest, ManifestEntry, ScanOptions, SecretFinding } from "./types.js";
 
 async function* walkFiles(root: string): AsyncGenerator<string> {
@@ -28,6 +30,11 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
     const sample = await readTextSample(filePath).catch(() => "");
     const category = inferCategory(filePath, sample);
     if (category === "sessions" && !options.includeSessions) continue;
+    const mcp = category === "mcp_configs" ? analyzeMcpConfig(sample) : undefined;
+    const migrationNotes = mcp?.warnings.length ? [
+      "MCP config detected. Machine-local command/cwd/arg paths may need rebind on the target computer.",
+      ...mcp.warnings
+    ] : mcp ? ["MCP config detected. Verify target machine has the same MCP runtime commands installed."] : undefined;
 
     const risk = riskFor(category, filePath, sample);
     const relativePath = safeRelative(root.path, filePath);
@@ -51,6 +58,8 @@ async function scanRoot(root: AgentRoot, options: ScanOptions): Promise<{ entrie
       target_restore_path: targetRestorePath,
       risk_level: risk,
       included,
+      mcp,
+      migration_notes: migrationNotes,
       redacted_preview: redactedPreview,
       reason: included ? undefined : "Sensitive file or secret-like content detected; excluded by default."
     };
@@ -100,6 +109,7 @@ export async function scan(options: ScanOptions = {}): Promise<Manifest> {
     created_at: new Date().toISOString(),
     source_platform: options.platform ?? process.platform,
     source_home: options.homeDir ?? process.env.USERPROFILE ?? process.env.HOME ?? "",
+    source_machine: getMachineProfile(options),
     include_sessions: options.includeSessions === true,
     include_secrets: options.includeSecrets === true,
     entries: allEntries,

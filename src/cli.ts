@@ -79,6 +79,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "features") {
+    printFeatures();
+    return;
+  }
+
   printHelp();
 }
 
@@ -86,15 +91,54 @@ function printHelp(): void {
   console.log(`Skills Migration
 
 Usage:
-  npm run cli -- scan [--out manifest.json] [--include-sessions] [--include-secrets]
-  npm run cli -- backup [--out backups/latest] [--zip outputs/export.zip]
-  npm run cli -- restore --from backups/latest [--preview] [--strategy skip|overwrite|rename] [--home C:\\Users\\you]
-  npm run dev
+  skills-migration.exe features
+  skills-migration.exe web [--port 5174]
+  skills-migration.exe scan [--out manifest.json] [--include-sessions] [--include-secrets]
+  skills-migration.exe backup [--out backups/latest] [--zip export.zip]
+  skills-migration.exe restore --from backups/latest [--preview] [--strategy skip|overwrite|rename] [--home C:\\Users\\you]
+
+Basic features:
+  - Detect Codex, OpenClaw, Claude Code, opencode, Hermes, Cursor, Gemini CLI
+  - Migrate skills, agents, commands, prompts, MCP configs, settings, memories
+  - Detect MCP server configs and warn about machine-local command/cwd paths
+  - Exclude secrets/API keys by default
+  - Create restore snapshots before overwrite
 
 Safety defaults:
   - sessions are skipped unless --include-sessions is set
   - secret-like files and API keys are excluded unless --include-secrets is set
   - import uses --strategy skip unless changed
+`);
+}
+
+function printFeatures(): void {
+  console.log(`Skills Migration 基础功能
+
+Agent 适配:
+  - Codex: .codex
+  - OpenClaw: .agents
+  - Claude Code: .claude
+  - opencode: AppData/opencode, .config/opencode
+  - Hermes: .hermes
+  - Cursor: .cursor
+  - Gemini CLI: .gemini
+
+可迁移内容:
+  - skills / agents / commands / prompts
+  - MCP configs: 识别 mcpServers、server command、cwd、env 标记
+  - settings / memories
+  - sessions 可选迁移
+
+MCP 跨机器迁移:
+  - manifest 会记录 source_machine.machine_id 和 hostname
+  - MCP 文件会照常迁移到目标路径
+  - 如果 MCP server command/cwd/args 包含 C:\\、/Users、/home 等本机路径，会在 manifest 和 restore_report.md 中提示重绑
+  - API key、token、.env、secret-like 文件默认不迁移
+
+一键命令:
+  skills-migration.exe backup --out backups/latest --zip export.zip
+  skills-migration.exe restore --from backups/latest --preview --strategy skip
+  skills-migration.exe restore --from backups/latest --strategy skip
 `);
 }
 

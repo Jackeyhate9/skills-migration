@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,11 +12,12 @@
         <span class="brand-mark">SM</span>
         <div>
           <h1>Skills Migration</h1>
-          <p>技能迁移控制台</p>
+          <p>&#25216;&#33021;&#36801;&#31227;&#25511;&#21046;&#21488;</p>
         </div>
       </div>
       <nav>
         <a href="#dashboard" class="active">Dashboard</a>
+        <a href="#features">&#22522;&#30784;&#21151;&#33021;</a>
         <a href="#scan">Scan</a>
         <a href="#export">Export</a>
         <a href="#import">Import</a>
@@ -28,26 +29,48 @@
     <main>
       <header class="topbar">
         <div>
-          <p class="eyebrow">Windows 优先的迁移工具</p>
-          <h2>安全迁移 AI Agent Skills</h2>
+          <p class="eyebrow">Windows-first migration tool</p>
+          <h2>&#23433;&#20840;&#36801;&#31227; AI Agent Skills</h2>
         </div>
         <div class="status-pill" id="statusPill">Idle</div>
       </header>
+
       <section id="dashboard">
         <div class="section-head">
           <div>
             <h2>Dashboard</h2>
-            <p>扫描本机 Agent 配置，检查敏感项排除结果，然后导出可迁移备份。</p>
+            <p>&#25195;&#25551;&#26412;&#26426; Agent &#37197;&#32622;&#65292;&#26816;&#26597;&#25935;&#24863;&#39033;&#25490;&#38500;&#32467;&#26524;&#65292;&#28982;&#21518;&#23548;&#20986;&#21487;&#36801;&#31227;&#22791;&#20221;&#12290;</p>
           </div>
           <button id="quickScanBtn">Quick scan</button>
         </div>
         <div class="metrics">
-          <div><strong id="totalFiles">0</strong><span>已发现文件</span></div>
-          <div><strong id="includedFiles">0</strong><span>可迁移文件</span></div>
-          <div><strong id="secretFiles">0</strong><span>已排除敏感项</span></div>
+          <div><strong id="totalFiles">0</strong><span>&#24050;&#21457;&#29616;&#25991;&#20214;</span></div>
+          <div><strong id="includedFiles">0</strong><span>&#21487;&#36801;&#31227;&#25991;&#20214;</span></div>
+          <div><strong id="secretFiles">0</strong><span>&#24050;&#25490;&#38500;&#25935;&#24863;&#39033;</span></div>
+        </div>
+        <div class="feature-grid">
+          <div><strong>Skills</strong><span>&#35782;&#21035;&#24182;&#36801;&#31227; SKILL.md &#21644;&#25216;&#33021;&#36164;&#28304;&#12290;</span></div>
+          <div><strong>MCP Configs</strong><span>&#35782;&#21035; mcpServers&#65292;&#25552;&#31034;&#26426;&#22120;&#36335;&#24452;&#37325;&#32465;&#12290;</span></div>
+          <div><strong>Machine Profile</strong><span>&#35760;&#24405;&#28304;&#26426;&#22120; machine_id&#65292;&#29992;&#20110;&#24674;&#22797;&#25253;&#21578;&#26657;&#23545;&#12290;</span></div>
+          <div><strong>Safety</strong><span>API key&#12289;token&#12289;.env &#40664;&#35748;&#19981;&#36801;&#31227;&#12290;</span></div>
         </div>
         <div class="agent-grid" id="agentGrid"></div>
       </section>
+
+      <section id="features">
+        <div class="section-head">
+          <div>
+            <h2>&#22522;&#30784;&#21151;&#33021;</h2>
+            <p>&#19968;&#20010; exe &#21516;&#26102;&#25552;&#20379; WebUI&#12289;&#25195;&#25551;&#12289;&#22791;&#20221;&#12289;&#24674;&#22797;&#21644; MCP &#36801;&#31227;&#26816;&#26597;&#12290;</p>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <div><strong>features</strong><span><code>skills-migration.exe features</code></span></div>
+          <div><strong>backup</strong><span><code>skills-migration.exe backup --out backups/latest --zip export.zip</code></span></div>
+          <div><strong>restore</strong><span><code>skills-migration.exe restore --from backups/latest --preview</code></span></div>
+        </div>
+      </section>
+
       <section id="scan">
         <div class="section-head">
           <div>
@@ -66,6 +89,7 @@
           </table>
         </div>
       </section>
+
       <section id="export">
         <div class="section-head">
           <div>
@@ -76,6 +100,7 @@
         </div>
         <p id="exportResult" class="result-line">Waiting for export.</p>
       </section>
+
       <section id="import">
         <div class="section-head">
           <div>
@@ -93,6 +118,7 @@
           </div>
         </div>
       </section>
+
       <section id="conflicts">
         <div class="section-head">
           <div>
@@ -107,6 +133,7 @@
           </table>
         </div>
       </section>
+
       <section id="logs">
         <div class="section-head">
           <div>
@@ -116,6 +143,7 @@
         </div>
         <pre id="logsBox"></pre>
       </section>
+
       <section id="settings">
         <div class="section-head">
           <div>
@@ -125,7 +153,7 @@
         </div>
         <div class="settings-grid">
           <div><strong>Secrets</strong><span>Excluded and redacted by default.</span></div>
-          <div><strong>GitHub</strong><span>Private repository strongly recommended.</span></div>
+          <div><strong>MCP</strong><span>Configs are migrated; machine-local paths are reported for rebind.</span></div>
           <div><strong>Rollback</strong><span>Snapshots are created before overwrite restore actions.</span></div>
         </div>
       </section>
