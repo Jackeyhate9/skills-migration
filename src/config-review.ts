@@ -55,9 +55,50 @@ export async function applyConfigReviewChoices(
   return next;
 }
 
+export async function writeConfigDiffReport(items: ConfigReviewItem[], outputDir: string): Promise<string> {
+  await fs.mkdir(outputDir, { recursive: true });
+  const reportPath = path.join(outputDir, "config_diff_report.md");
+  const lines = [
+    "# Config Diff Report",
+    "",
+    `- Created at: ${new Date().toISOString()}`,
+    `- Items: ${items.length}`,
+    "",
+    "| Agent | Category | Target exists | Recommended | Source | Target | Summary |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...items.map((item) => [
+      item.agent,
+      item.category,
+      String(item.target_exists),
+      item.recommended_action,
+      `\`${escapeCell(item.source_file)}\``,
+      `\`${escapeCell(item.target_file)}\``,
+      escapeCell(item.diff_summary.preview)
+    ].join(" | ")).map((line) => `| ${line} |`),
+    "",
+    "## Details",
+    "",
+    ...items.flatMap((item) => [
+      `### ${item.agent} / ${item.category}`,
+      "",
+      `- Source: \`${item.source_file}\``,
+      `- Target: \`${item.target_file}\``,
+      `- Target exists: ${item.target_exists}`,
+      `- Recommended action: ${item.recommended_action}`,
+      `- Summary: ${item.diff_summary.preview}`,
+      item.diff_summary.type === "json"
+        ? `- Added keys: ${item.diff_summary.added.join(", ") || "none"}\n- Removed keys: ${item.diff_summary.removed.join(", ") || "none"}\n- Changed keys: ${item.diff_summary.changed.join(", ") || "none"}\n- Conflict keys: ${item.diff_summary.conflicts?.join(", ") || "none"}`
+        : `- Added lines: ${item.diff_summary.added_line_count ?? item.diff_summary.added.length}\n- Removed lines: ${item.diff_summary.removed_line_count ?? item.diff_summary.removed.length}\n- Changed lines: ${item.diff_summary.changed_line_count ?? item.diff_summary.changed.length}`,
+      ""
+    ])
+  ];
+  await fs.writeFile(reportPath, lines.join("\n"), "utf8");
+  return reportPath;
+}
+
 export async function diffFiles(sourcePath: string, targetPath: string): Promise<DiffSummary> {
   if (!(await exists(targetPath))) {
-    return { type: "missing_target", added: [], changed: [], removed: [], preview: "Target file does not exist." };
+    return { type: "missing_target", added: [], changed: [], removed: [], conflicts: [], preview: "Target file does not exist." };
   }
   const source = await fs.readFile(sourcePath, "utf8").catch(() => "");
   const target = await fs.readFile(targetPath, "utf8").catch(() => "");
@@ -74,12 +115,14 @@ function jsonDiff(sourceText: string, targetText: string): DiffSummary {
     const added = Object.keys(source).filter((key) => !(key in target)).sort();
     const removed = Object.keys(target).filter((key) => !(key in source)).sort();
     const changed = Object.keys(source).filter((key) => key in target && JSON.stringify(source[key]) !== JSON.stringify(target[key])).sort();
+    const conflicts = changed.filter((key) => key in target && key in source);
     return {
       type: "json",
       added,
       changed,
       removed,
-      preview: `JSON diff: +${added.length} ~${changed.length} -${removed.length}`
+      conflicts,
+      preview: `JSON diff: added keys ${added.length}, removed keys ${removed.length}, changed keys ${changed.length}, conflict keys ${conflicts.length}`
     };
   } catch {
     return textDiff(sourceText, targetText);
@@ -89,15 +132,25 @@ function jsonDiff(sourceText: string, targetText: string): DiffSummary {
 function textDiff(sourceText: string, targetText: string): DiffSummary {
   const sourceLines = new Set(sourceText.split(/\r?\n/));
   const targetLines = new Set(targetText.split(/\r?\n/));
-  const added = [...sourceLines].filter((line) => line && !targetLines.has(line)).slice(0, 20);
-  const removed = [...targetLines].filter((line) => line && !sourceLines.has(line)).slice(0, 20);
+  const allAdded = [...sourceLines].filter((line) => line && !targetLines.has(line));
+  const allRemoved = [...targetLines].filter((line) => line && !sourceLines.has(line));
+  const changedLineCount = Math.min(allAdded.length, allRemoved.length);
+  const added = allAdded.slice(0, 20);
+  const removed = allRemoved.slice(0, 20);
   return {
     type: "text",
     added,
     changed: [],
     removed,
-    preview: `Text diff: +${added.length} -${removed.length}`
+    added_line_count: allAdded.length,
+    removed_line_count: allRemoved.length,
+    changed_line_count: changedLineCount,
+    preview: `Text diff: changed lines ${changedLineCount}, added lines ${allAdded.length}, removed lines ${allRemoved.length}`
   };
+}
+
+function escapeCell(value: string): string {
+  return value.replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
 function flattenJson(value: unknown, prefix = "", out: Record<string, unknown> = {}): Record<string, unknown> {

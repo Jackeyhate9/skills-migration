@@ -127,6 +127,10 @@ export interface DiffSummary {
   added: string[];
   changed: string[];
   removed: string[];
+  conflicts?: string[];
+  added_line_count?: number;
+  changed_line_count?: number;
+  removed_line_count?: number;
   preview: string;
 }
 
@@ -139,6 +143,28 @@ export interface McpRuntimeServer {
   env_keys: string[];
   status: "ready" | "missing_runtime" | "missing_path" | "skipped_secret_env" | "unknown";
   details: string[];
+  suggestions: string[];
+}
+
+export interface MigrationResultSummary {
+  migrated_files: number;
+  skipped_sensitive_files: number;
+  renamed_conflicts: number;
+  config_pending_review: number;
+  config_merged: number;
+  config_overwritten_after_backup: number;
+  mcp_ready: number;
+  mcp_missing_runtime: number;
+  mcp_missing_path: number;
+  backup_snapshot_path: string;
+  rollback_available: boolean;
+  restore_report_path: string;
+}
+
+export interface SelfCheckResult {
+  status: "Ready" | "Partial" | "Not Ready";
+  checks: Array<{ name: string; ok: boolean; details: string }>;
+  reportPath: string;
 }
 
 export interface ExportToFolderResult {

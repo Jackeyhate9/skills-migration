@@ -190,6 +190,79 @@ Current remaining limitations:
 - MCP Runtime Check reports missing dependencies and paths but does not install or fix them.
 - GitHub/cloud sync remains explicit user responsibility; use a private repo or private sync tool.
 
+## v0.3 Practical Release / 实用版定位
+
+AI Agent Skills Migrator is a desktop tool for safely moving AI coding agent workflows between computers. The practical release narrows the product scope:
+
+- Tauri desktop is the intended full migration tool.
+- Browser fallback is preview-only: upload a zip, preview `manifest.json`, and preview `restore_plan.json`.
+- Secrets/API keys are not migrated by default.
+- MCP configs are checked, but MCP server runtimes are not installed automatically.
+- GitHub/cloud sync is not enabled by default; local git backup remains optional.
+
+支持的 Agent：
+
+- opencode
+- Hermes
+- Claude Code
+- Codex
+- OpenClaw / `.agents`
+- Cursor
+- Gemini CLI
+
+核心能力：
+
+- scan local agent homes
+- export migration zip
+- import migration zip
+- backup before restore
+- config review with practical diff summary
+- MCP runtime check with fix suggestions
+- rollback
+- local git backup
+
+Migration Wizard flow:
+
+Old computer:
+
+1. Scan local agents.
+2. Select agents/categories.
+3. Review sensitive files skipped by default.
+4. Export zip.
+5. Copy this zip to the new computer.
+
+New computer:
+
+1. Select migration zip.
+2. Preview manifest.
+3. Create backup snapshot.
+4. Preview restore plan.
+5. Review settings/config actions.
+6. Check MCP runtime status and suggestions.
+7. Restore.
+8. Review result summary and rollback option.
+
+Commands:
+
+```powershell
+skills-migration.exe scan
+skills-migration.exe export --output ./exports
+skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip --preview
+skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip
+skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
+skills-migration.exe self-check
+skills-migration.exe web
+```
+
+Windows packaging:
+
+```powershell
+npm run package:win
+npm run tauri:build
+```
+
+`npm run package:win` is the verified Windows executable-folder package. `npm run tauri:build` is provided for the desktop direction and requires a complete `src-tauri` scaffold. See `PACKAGING_WINDOWS.md`.
+
 ## Smoke Test
 
 ```powershell

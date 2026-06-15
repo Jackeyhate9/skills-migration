@@ -17,6 +17,7 @@
     "import": "tsx src/cli.ts import",
     "package:win": "node scripts/package-win-folder.mjs",
     "package:win:sea": "node scripts/package-win.mjs",
+    "tauri:build": "tauri build",
     "smoke": "tsx tests/smoke.ts",
     "typecheck": "tsc --noEmit"
   },

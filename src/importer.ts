@@ -6,7 +6,8 @@ import { checksumFile, copyFileEnsuringDir, ensureDir, exists, timestampSlug } f
 import { getRestoreRoot } from "./scan-config.js";
 import { applyConfigReviewChoices, buildConfigReview } from "./config-review.js";
 import { checkMcpRuntimes } from "./mcp-runtime-checker.js";
-import type { ExportManifest, ImportOptions, RestorePlan, RestorePlanAction, RollbackOptions } from "./types.js";
+import { buildMigrationResultSummary } from "./result-summary.js";
+import type { ExportManifest, ImportOptions, MigrationResultSummary, RestorePlan, RestorePlanAction, RollbackOptions } from "./types.js";
 
 export async function importMigrationPackage(options: ImportOptions): Promise<{
   manifest: ExportManifest;
@@ -14,6 +15,8 @@ export async function importMigrationPackage(options: ImportOptions): Promise<{
   restorePlan: RestorePlan;
   restorePlanPath: string;
   restoreReportPath: string;
+  resultSummary: MigrationResultSummary;
+  mcpRuntime: Awaited<ReturnType<typeof checkMcpRuntimes>>;
 }> {
   const extractDir = await extractArchive(options.archivePath);
   const manifest = await readExportManifest(extractDir);
@@ -31,7 +34,9 @@ export async function importMigrationPackage(options: ImportOptions): Promise<{
 
   const restoreReportPath = path.join(extractDir, "restore_report.md");
   await writeRestoreReport(restoreReportPath, planToApply, options.dryRun === true);
-  return { manifest, extractDir, restorePlan: planToApply, restorePlanPath, restoreReportPath };
+  const mcpRuntime = await checkMcpRuntimes(extractDir, manifest);
+  const resultSummary = buildMigrationResultSummary(manifest, planToApply, restoreReportPath, mcpRuntime.servers);
+  return { manifest, extractDir, restorePlan: planToApply, restorePlanPath, restoreReportPath, resultSummary, mcpRuntime };
 }
 
 export const runImport = importMigrationPackage;

@@ -2,10 +2,14 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import { buildConfigReview, writeConfigDiffReport } from "./config-review.js";
 import { exportMigrationPackage } from "./exporter.js";
 import { exportToFolder } from "./export-to-folder.js";
 import { importMigrationPackage, planImport, previewImportPackage, rollback, writeConfigReviewChoices } from "./importer.js";
+import { checkMcpRuntimes } from "./mcp-runtime-checker.js";
 import { scan } from "./scanner.js";
+import { runSelfCheck } from "./self-check.js";
+import type { RestorePlan } from "./types.js";
 
 const appDir = process.env.SKILLS_MIGRATOR_APP_DIR ?? process.cwd();
 const webRoot = path.resolve(appDir, "web");
@@ -76,6 +80,22 @@ export async function startServer(port = 5174): Promise<http.Server> {
         return sendJson(res, { restorePlan: plan });
       }
 
+      if (url.pathname === "/api/config-review/report" && req.method === "POST") {
+        const body = JSON.parse((await readBody(req)).toString("utf8")) as { restorePlanPath: string };
+        const restorePlanPath = path.resolve(body.restorePlanPath);
+        const plan = JSON.parse(await fs.readFile(restorePlanPath, "utf8")) as RestorePlan;
+        const items = await buildConfigReview(plan);
+        const reportPath = await writeConfigDiffReport(items, path.dirname(restorePlanPath));
+        return sendJson(res, { reportPath });
+      }
+
+      if (url.pathname === "/api/mcp-runtime/recheck") {
+        const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
+        const preview = await previewImportPackage({ archivePath, dryRun: true });
+        const mcpRuntime = await checkMcpRuntimes(preview.extractDir, preview.manifest);
+        return sendJson(res, mcpRuntime);
+      }
+
       if (url.pathname === "/api/import/run" && req.method === "POST") {
         const archivePath = path.resolve(url.searchParams.get("from") ?? "exports/latest.zip");
         const restorePlanPath = url.searchParams.get("plan") ? path.resolve(url.searchParams.get("plan")!) : undefined;
@@ -84,13 +104,21 @@ export async function startServer(port = 5174): Promise<http.Server> {
           actions: result.restorePlan.actions,
           restorePlanPath: result.restorePlanPath,
           reportPath: result.restoreReportPath,
-          snapshotDir: result.restorePlan.backup_snapshot
+          snapshotDir: result.restorePlan.backup_snapshot,
+          resultSummary: result.resultSummary,
+          mcpRuntime: result.mcpRuntime
         });
       }
 
       if (url.pathname === "/api/rollback" && req.method === "POST") {
         const snapshotDir = path.resolve(url.searchParams.get("snapshot") ?? "");
         const result = await rollback({ snapshotDir });
+        return sendJson(res, result);
+      }
+
+      if (url.pathname === "/api/self-check" && req.method === "POST") {
+        const outputDir = path.resolve(url.searchParams.get("out") ?? "self-check");
+        const result = await runSelfCheck(outputDir);
         return sendJson(res, result);
       }
 

@@ -4,12 +4,13 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildConfigReview } from "../src/config-review.js";
+import { buildConfigReview, writeConfigDiffReport } from "../src/config-review.js";
 import { writeConfigReviewChoices, importMigrationPackage, previewImportPackage, rollback } from "../src/importer.js";
 import { checkMcpRuntimes } from "../src/mcp-runtime-checker.js";
 import { exportMigrationPackage } from "../src/exporter.js";
 import { exportToFolder } from "../src/export-to-folder.js";
 import { scan } from "../src/scanner.js";
+import { runSelfCheck } from "../src/self-check.js";
 import { startServer } from "../src/server.js";
 
 const exec = promisify(execFile);
@@ -71,7 +72,10 @@ async function main(): Promise<void> {
   assert(settingsReview);
   assert.equal(settingsReview.diff_summary.type, "json");
   assert(settingsReview.diff_summary.changed.includes("theme"));
+  assert(settingsReview.diff_summary.conflicts?.includes("theme"));
   assert(preview.restorePlan.actions.some((action) => action.action === "confirm" && action.category === "settings"));
+  const diffReport = await writeConfigDiffReport(review, preview.extractDir);
+  assert.equal(await fileExists(diffReport), true);
 
   const choices: Record<string, "rename_imported"> = {};
   choices[settingsReview.id] = "rename_imported";
@@ -85,6 +89,7 @@ async function main(): Promise<void> {
   assert(mcpRuntime.servers.some((server) => server.command === "uvx" && server.status === "missing_runtime"));
   assert(mcpRuntime.servers.some((server) => server.command === "docker" && (server.status === "missing_runtime" || server.status === "missing_path")));
   assert(mcpRuntime.servers.some((server) => server.server_name === "localPath" && server.status === "missing_path"));
+  assert(mcpRuntime.servers.some((server) => server.command === "uvx" && server.suggestions.some((suggestion) => suggestion.includes("uv"))));
 
   const restored = await importMigrationPackage({
     archivePath: exported.zipPath,
@@ -99,6 +104,9 @@ async function main(): Promise<void> {
   assert.equal(await fileExists(path.join(targetHome, ".claude", ".env")), false);
   assert.equal(await fileExists(path.join(targetHome, ".codex", "token.json")), false);
   assert((await fs.readFile(restored.restoreReportPath, "utf8")).includes("rename_imported"));
+  assert(restored.resultSummary.migrated_files > 0);
+  assert.equal(restored.resultSummary.renamed_conflicts >= 1, true);
+  assert.equal(restored.resultSummary.rollback_available, true);
 
   await rollback({ snapshotDir: restored.restorePlan.backup_snapshot });
   assert.equal(await fs.readFile(existingSkill, "utf8"), "# Existing Claude Skill\n");
@@ -122,6 +130,11 @@ async function main(): Promise<void> {
   const remotes = await exec("git", ["remote"], { cwd: localBackup });
   assert.equal(remotes.stdout.trim(), "");
   assert(folderExport.gitCommit);
+
+  const selfCheck = await runSelfCheck(path.join(tmp, "self-check"));
+  assert(["Ready", "Partial", "Not Ready"].includes(selfCheck.status));
+  assert.equal(await fileExists(selfCheck.reportPath), true);
+  assert(selfCheck.checks.some((check) => check.name === "sensitive_filter" && check.ok));
 
   console.log(`Smoke test passed: ${tmp}`);
 }

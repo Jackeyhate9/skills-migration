@@ -7,13 +7,38 @@ const restorePlanBox = document.querySelector("#restorePlanBox");
 const packagePreview = document.querySelector("#packagePreview");
 const configReviewList = document.querySelector("#configReviewList");
 const mcpRuntimeList = document.querySelector("#mcpRuntimeList");
+const resultSummaryGrid = document.querySelector("#resultSummaryGrid");
+const selfCheckResult = document.querySelector("#selfCheckResult");
+const runtimePill = document.querySelector("#runtimePill");
+const capabilityNotice = document.querySelector("#capabilityNotice");
 let currentRestorePlanPath = "";
+let currentArchivePath = "";
+const runtimeMode = window.__TAURI__ ? "tauri_desktop" : "browser_fallback";
 
 document.querySelectorAll("nav a").forEach((link) => {
   link.addEventListener("click", () => {
     document.querySelectorAll("nav a").forEach((item) => item.classList.remove("active"));
     link.classList.add("active");
   });
+});
+
+applyCapabilityGuard();
+
+document.querySelector("#wizardOldScan").addEventListener("click", () => {
+  location.hash = "#scan";
+  if (runtimeMode === "tauri_desktop") runScan();
+});
+document.querySelector("#wizardOldExport").addEventListener("click", () => {
+  location.hash = "#export";
+  document.querySelector("#exportBtn").click();
+});
+document.querySelector("#wizardNewChoose").addEventListener("click", () => {
+  location.hash = "#import";
+  document.querySelector("#choosePackageBtn").click();
+});
+document.querySelector("#wizardNewRestore").addEventListener("click", () => {
+  location.hash = "#result-summary";
+  document.querySelector("#restoreBtn").click();
 });
 
 function log(message, data) {
@@ -46,10 +71,28 @@ async function getJson(url, options) {
   return data;
 }
 
+function applyCapabilityGuard() {
+  const desktop = runtimeMode === "tauri_desktop";
+  runtimePill.textContent = desktop ? "tauri_desktop" : "browser_fallback";
+  runtimePill.style.color = desktop ? "#087443" : "#854a0e";
+  runtimePill.style.background = desktop ? "#dcfaeb" : "#fff4df";
+  capabilityNotice.textContent = desktop
+    ? "Desktop mode: file chooser, local scanning, backup, restore, and rollback are enabled."
+    : "Browser fallback: local directory scanning, direct restore, backup, and rollback are disabled. Upload a zip to preview manifest and restore plan. Full migration requires the desktop app.";
+  ["#quickScanBtn", "#scanBtn", "#exportBtn", "#exportFolderBtn", "#restoreBtn", "#rollbackBtn", "#wizardOldScan", "#wizardOldExport", "#wizardNewRestore"].forEach((selector) => {
+    const element = document.querySelector(selector);
+    if (element) element.disabled = !desktop;
+  });
+}
+
 document.querySelector("#quickScanBtn").addEventListener("click", () => runScan());
 document.querySelector("#scanBtn").addEventListener("click", () => runScan());
 
 async function runScan() {
+  if (runtimeMode !== "tauri_desktop") {
+    log("Scan disabled in browser fallback. Use the desktop app for full migration.");
+    return;
+  }
   const sessions = document.querySelector("#sessions").checked;
   const manifest = await getJson(`/api/scan?sessions=${sessions}`);
   document.querySelector("#totalFiles").textContent = manifest.summary.total_files;
@@ -69,6 +112,7 @@ async function runScan() {
 }
 
 document.querySelector("#exportBtn").addEventListener("click", async () => {
+  if (runtimeMode !== "tauri_desktop") return log("Export disabled in browser fallback.");
   const result = await getJson("/api/export", { method: "POST" });
   document.querySelector("#exportResult").textContent = `Exported ${result.fileCount} files to ${result.exportDir}; zip ${result.zipPath}`;
   document.querySelector("#archivePath").value = result.zipPath;
@@ -76,6 +120,7 @@ document.querySelector("#exportBtn").addEventListener("click", async () => {
 });
 
 document.querySelector("#exportFolderBtn").addEventListener("click", async () => {
+  if (runtimeMode !== "tauri_desktop") return log("Export to folder disabled in browser fallback.");
   const dir = encodeURIComponent(document.querySelector("#backupDir").value || "local-backup");
   const git = document.querySelector("#gitCommit").checked;
   const result = await getJson(`/api/export/folder?dir=${dir}&git=${git}`, { method: "POST" });
@@ -115,6 +160,7 @@ document.querySelector("#packageFileInput").addEventListener("change", async (ev
 
 document.querySelector("#previewBtn").addEventListener("click", async () => {
   const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
+  currentArchivePath = document.querySelector("#archivePath").value || "exports/latest.zip";
   const result = await getJson(`/api/import/manifest?from=${archive}`);
   renderActions(result.restorePlan.actions);
   renderPackagePreview(result.manifest);
@@ -127,10 +173,13 @@ document.querySelector("#previewBtn").addEventListener("click", async () => {
 });
 
 document.querySelector("#restoreBtn").addEventListener("click", async () => {
+  if (runtimeMode !== "tauri_desktop") return log("Restore disabled in browser fallback. Use the desktop app for full migration.");
   const archive = encodeURIComponent(document.querySelector("#archivePath").value || "exports/latest.zip");
   const plan = currentRestorePlanPath ? `&plan=${encodeURIComponent(currentRestorePlanPath)}` : "";
   const result = await getJson(`/api/import/run?from=${archive}${plan}`, { method: "POST" });
   renderActions(result.actions);
+  renderResultSummary(result.resultSummary);
+  renderMcpRuntime(result.mcpRuntime.servers);
   document.querySelector("#snapshotPath").value = result.snapshotDir;
   log("Restore complete", result);
 });
@@ -148,10 +197,33 @@ document.querySelector("#applyConfigReviewBtn").addEventListener("click", async 
   log("Config choices applied", choices);
 });
 
+document.querySelector("#exportDiffReportBtn").addEventListener("click", async () => {
+  if (!currentRestorePlanPath) return log("No restore plan loaded.");
+  const result = await getJson("/api/config-review/report", {
+    method: "POST",
+    body: JSON.stringify({ restorePlanPath: currentRestorePlanPath })
+  });
+  log("Config diff report exported", result);
+});
+
+document.querySelector("#recheckMcpBtn").addEventListener("click", async () => {
+  const archive = encodeURIComponent(currentArchivePath || document.querySelector("#archivePath").value || "exports/latest.zip");
+  const result = await getJson(`/api/mcp-runtime/recheck?from=${archive}`);
+  renderMcpRuntime(result.servers);
+  log("MCP runtime rechecked", result);
+});
+
 document.querySelector("#rollbackBtn").addEventListener("click", async () => {
+  if (runtimeMode !== "tauri_desktop") return log("Rollback disabled in browser fallback. Use the desktop app for full migration.");
   const snapshot = encodeURIComponent(document.querySelector("#snapshotPath").value);
   const result = await getJson(`/api/rollback?snapshot=${snapshot}`, { method: "POST" });
   log("Rollback complete", result);
+});
+
+document.querySelector("#selfCheckBtn").addEventListener("click", async () => {
+  const result = await getJson("/api/self-check", { method: "POST" });
+  renderSelfCheck(result);
+  log("Self check complete", result);
 });
 
 function renderActions(actions) {
@@ -178,6 +250,7 @@ function renderRestorePlan(plan) {
 }
 
 async function loadPackagePreview(archivePath) {
+  currentArchivePath = archivePath;
   const result = await getJson(`/api/import/manifest?from=${encodeURIComponent(archivePath)}`);
   renderPackagePreview(result.manifest);
   renderRestorePlan(result.restorePlan);
@@ -185,6 +258,16 @@ async function loadPackagePreview(archivePath) {
   renderMcpRuntime(result.mcpRuntime.servers);
   currentRestorePlanPath = result.restorePlanPath;
   document.querySelector("#snapshotPath").value = result.restorePlan.backup_snapshot;
+}
+
+function renderResultSummary(summary) {
+  if (!summary) {
+    resultSummaryGrid.innerHTML = "";
+    return;
+  }
+  resultSummaryGrid.innerHTML = Object.entries(summary).map(([label, value]) =>
+    `<div><strong>${label}</strong><span>${value}</span></div>`
+  ).join("");
 }
 
 function renderPackagePreview(manifest) {
@@ -208,6 +291,7 @@ function renderConfigReview(items) {
       <span>Target: ${item.target_file}</span>
       <span>Target exists: ${item.target_exists}</span>
       <span>${item.diff_summary.preview}</span>
+      <small>${formatDiffSummary(item.diff_summary)}</small>
       <div class="review-actions">
         <select data-config-choice="${item.id}">
           ${["skip", "backup_then_overwrite", "merge", "rename_imported"].map((action) =>
@@ -229,8 +313,36 @@ function renderMcpRuntime(servers) {
       <span>args: ${server.args.join(" ")}</span>
       <span>env keys: ${server.env_keys.join(", ") || "none"}</span>
       <small>${server.details.join("; ")}</small>
+      <small>suggestions: ${(server.suggestions || []).join("; ")}</small>
     </div>
   `).join("");
+}
+
+function renderSelfCheck(result) {
+  selfCheckResult.innerHTML = `
+    <div class="review-item">
+      <strong class="status-${result.status === "Ready" ? "ready" : result.status === "Partial" ? "skipped_secret_env" : "missing_runtime"}">${result.status}</strong>
+      <span>Report: ${result.reportPath}</span>
+    </div>
+    ${result.checks.map((check) => `
+      <div class="review-item">
+        <strong class="${check.ok ? "status-ready" : "status-missing_runtime"}">${check.ok ? "ready" : "not ready"} 路 ${check.name}</strong>
+        <span>${check.details}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function formatDiffSummary(summary) {
+  if (summary.type === "json") {
+    return [
+      `added keys: ${(summary.added || []).join(", ") || "none"}`,
+      `removed keys: ${(summary.removed || []).join(", ") || "none"}`,
+      `changed keys: ${(summary.changed || []).join(", ") || "none"}`,
+      `conflict keys: ${(summary.conflicts || []).join(", ") || "none"}`
+    ].join(" | ");
+  }
+  return `changed lines: ${summary.changed_line_count || 0} | added lines: ${summary.added_line_count || 0} | removed lines: ${summary.removed_line_count || 0}`;
 }
 
 function renderAgents(manifest) {

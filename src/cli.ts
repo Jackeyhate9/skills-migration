@@ -4,6 +4,7 @@ import { exportToFolder } from "./export-to-folder.js";
 import { exportMigrationPackage } from "./exporter.js";
 import { importMigrationPackage, planImport, rollback } from "./importer.js";
 import { scan } from "./scanner.js";
+import { runSelfCheck } from "./self-check.js";
 import { startServer } from "./server.js";
 
 function argValue(args: string[], name: string, fallback?: string): string | undefined {
@@ -85,6 +86,8 @@ async function main(): Promise<void> {
       const result = await importMigrationPackage({ archivePath, dryRun, restoreHomeDir, confirmSettings });
       console.log(`Restored ${result.restorePlan.actions.length} actions from ${archivePath}`);
       printActionTable(result.restorePlan.actions);
+      console.log("Result summary:");
+      console.log(JSON.stringify(result.resultSummary, null, 2));
       console.log(`Restore plan: ${result.restorePlanPath}`);
       console.log(`Report: ${result.restoreReportPath}`);
     }
@@ -96,6 +99,15 @@ async function main(): Promise<void> {
     if (!snapshotDir) throw new Error("Missing --snapshot backups/YYYYMMDD-HHMMSS-before-restore");
     const result = await rollback({ snapshotDir });
     console.log(`Rollback complete. Restored=${result.restored} Removed=${result.removed}`);
+    console.log(`Report: ${result.reportPath}`);
+    return;
+  }
+
+  if (command === "self-check") {
+    const outputDir = path.resolve(argValue(args, "--out", "self-check")!);
+    const result = await runSelfCheck(outputDir);
+    console.log(`Self check: ${result.status}`);
+    console.table(result.checks);
     console.log(`Report: ${result.reportPath}`);
     return;
   }
@@ -134,6 +146,7 @@ Usage:
   skills-migration.exe export-folder --dir ./local-backup [--git-commit]
   skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip [--preview] [--home C:\\Users\\you]
   skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
+  skills-migration.exe self-check [--out self-check]
 
 Basic features:
   - Detect Codex, OpenClaw, Claude Code, opencode, Hermes, Cursor, Gemini CLI
@@ -174,6 +187,7 @@ Commands:
   skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip --preview
   skills-migration.exe import ./exports/agent-skills-export-YYYYMMDD-HHMMSS.zip
   skills-migration.exe rollback --snapshot backups/YYYYMMDD-HHMMSS-before-restore
+  skills-migration.exe self-check
 `);
 }
 

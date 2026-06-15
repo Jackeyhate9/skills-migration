@@ -17,6 +17,7 @@
       </div>
       <nav>
         <a href="#dashboard" class="active">Dashboard</a>
+        <a href="#wizard">Migration Wizard</a>
         <a href="#features">&#22522;&#30784;&#21151;&#33021;</a>
         <a href="#scan">Scan</a>
         <a href="#export">Export</a>
@@ -24,8 +25,10 @@
         <a href="#restore-plan">Restore Plan</a>
         <a href="#config-review">Config Review</a>
         <a href="#mcp-runtime">MCP Runtime</a>
+        <a href="#result-summary">Result</a>
         <a href="#conflicts">Conflicts</a>
         <a href="#rollback">Backup & Rollback</a>
+        <a href="#self-check">Self Check</a>
         <a href="#logs">Logs</a>
         <a href="#settings">Settings</a>
       </nav>
@@ -36,7 +39,10 @@
           <p class="eyebrow">Windows-first migration tool</p>
           <h2>&#23433;&#20840;&#36801;&#31227; AI Agent Skills</h2>
         </div>
-        <div class="status-pill" id="statusPill">Idle</div>
+        <div class="top-actions">
+          <div class="status-pill" id="runtimePill">Detecting runtime</div>
+          <div class="status-pill" id="statusPill">Idle</div>
+        </div>
       </header>
 
       <section id="dashboard">
@@ -59,6 +65,48 @@
           <div><strong>Safety</strong><span>API key&#12289;token&#12289;.env &#40664;&#35748;&#19981;&#36801;&#31227;&#12290;</span></div>
         </div>
         <div class="agent-grid" id="agentGrid"></div>
+      </section>
+
+      <section id="wizard">
+        <div class="section-head">
+          <div>
+            <h2>Migration Wizard</h2>
+            <p>&#26700;&#38754;&#29256;&#25165;&#25191;&#34892;&#23436;&#25972;&#36801;&#31227;&#65307;&#27983;&#35272;&#22120;&#29256;&#21482;&#29992;&#20110; zip &#39044;&#35272;&#21644; restore plan &#39044;&#35272;&#12290;</p>
+          </div>
+        </div>
+        <div id="capabilityNotice" class="notice"></div>
+        <div class="wizard-grid">
+          <div class="wizard-card">
+            <h3>&#25105;&#26159;&#26087;&#30005;&#33041;&#65306;&#25195;&#25551;&#24182;&#23548;&#20986;</h3>
+            <ol>
+              <li>Scan local agents</li>
+              <li>Select agents/categories</li>
+              <li>Sensitive files review</li>
+              <li>Export zip</li>
+              <li>Copy this zip to the new computer</li>
+            </ol>
+            <div class="toolbar">
+              <button id="wizardOldScan">Scan local agents</button>
+              <button id="wizardOldExport" class="secondary">Export zip</button>
+            </div>
+          </div>
+          <div class="wizard-card">
+            <h3>&#25105;&#26159;&#26032;&#30005;&#33041;&#65306;&#23548;&#20837;&#24182;&#24674;&#22797;</h3>
+            <ol>
+              <li>Select migration zip</li>
+              <li>Manifest preview</li>
+              <li>Create backup snapshot</li>
+              <li>Restore plan preview</li>
+              <li>Config Review</li>
+              <li>MCP Runtime Check</li>
+              <li>Restore, summary, rollback option</li>
+            </ol>
+            <div class="toolbar">
+              <button id="wizardNewChoose">Select migration zip</button>
+              <button id="wizardNewRestore" class="secondary">Restore</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="features">
@@ -143,7 +191,10 @@
             <h2>Config Review</h2>
             <p>Review settings/config files one by one before writing. Choices are saved into restore_plan.json.</p>
           </div>
-          <button id="applyConfigReviewBtn" class="secondary">Apply Config Choices</button>
+          <div class="toolbar">
+            <button id="applyConfigReviewBtn" class="secondary">Apply Config Choices</button>
+            <button id="exportDiffReportBtn" class="secondary">Export Diff Report</button>
+          </div>
         </div>
         <div id="configReviewList" class="review-list">No config review yet.</div>
       </section>
@@ -154,8 +205,19 @@
             <h2>MCP Runtime Check</h2>
             <p>Checks command availability and local paths. It never installs dependencies.</p>
           </div>
+          <button id="recheckMcpBtn" class="secondary">Recheck MCP Runtime</button>
         </div>
         <div id="mcpRuntimeList" class="review-list">No MCP runtime check yet.</div>
+      </section>
+
+      <section id="result-summary">
+        <div class="section-head">
+          <div>
+            <h2>Migration Result</h2>
+            <p>Final restore summary, backup snapshot, reports, and rollback availability.</p>
+          </div>
+        </div>
+        <div id="resultSummaryGrid" class="preview-grid"></div>
       </section>
 
       <section id="conflicts">
@@ -184,6 +246,17 @@
             <button id="rollbackBtn" class="secondary">Rollback Last Import</button>
           </div>
         </div>
+      </section>
+
+      <section id="self-check">
+        <div class="section-head">
+          <div>
+            <h2>Self Check</h2>
+            <p>Checks desktop capability, user directory access, zip creation, fake migration, sensitive filtering, and rollback.</p>
+          </div>
+          <button id="selfCheckBtn" class="secondary">Run Self Check</button>
+        </div>
+        <div id="selfCheckResult" class="review-list">No self check yet.</div>
       </section>
 
       <section id="logs">

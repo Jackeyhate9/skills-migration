@@ -29,7 +29,8 @@ export async function checkMcpRuntimes(exportDir: string, manifest: ExportManife
           ...runtimeStatus.details,
           ...missingPaths.map((item) => `missing path: ${item}`),
           ...secretEnv.map((item) => `secret-like env key skipped: ${item}`)
-        ]
+        ],
+        suggestions: suggestionsFor(server.command, missingPaths, secretEnv)
       });
     }
   }
@@ -114,10 +115,23 @@ function renderReport(servers: McpRuntimeServer[]): string {
   return [
     "# MCP Runtime Report",
     "",
-    "| Status | Agent | Server | Command | Args | Env keys | Details |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Status | Agent | Server | Command | Args | Env keys | Details | Suggestions |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...servers.map((server) =>
-      `| ${server.status} | ${server.agent} | ${server.server_name} | ${server.command ?? ""} | ${server.args.join(" ")} | ${server.env_keys.join(", ")} | ${server.details.join("; ")} |`
+      `| ${server.status} | ${server.agent} | ${server.server_name} | ${server.command ?? ""} | ${server.args.join(" ")} | ${server.env_keys.join(", ")} | ${server.details.join("; ")} | ${server.suggestions.join("; ")} |`
     )
   ].join("\n");
+}
+
+function suggestionsFor(command: string | undefined, missingPaths: string[], secretEnv: string[]): string[] {
+  const suggestions: string[] = [];
+  const executable = command ? path.basename(command).replace(/\.(cmd|exe|bat)$/i, "") : "";
+  if (["node", "npm", "npx"].includes(executable)) suggestions.push("Install Node.js LTS: https://nodejs.org/");
+  if (["uv", "uvx"].includes(executable)) suggestions.push("Install uv: https://docs.astral.sh/uv/getting-started/installation/");
+  if (executable === "docker") suggestions.push("Install Docker Desktop: https://www.docker.com/products/docker-desktop/");
+  if (["python", "python3"].includes(executable)) suggestions.push("Install Python 3: https://www.python.org/downloads/");
+  if (missingPaths.length > 0) suggestions.push("Copy the missing local file/folder from the old computer or edit the MCP config path.");
+  if (secretEnv.length > 0) suggestions.push("Recreate secret environment values on this computer; values are not migrated.");
+  if (suggestions.length === 0) suggestions.push("No automatic fix required.");
+  return suggestions;
 }
